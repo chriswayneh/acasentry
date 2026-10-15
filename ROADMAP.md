@@ -95,6 +95,7 @@ v0.2.1: secret-safe normalization, az login error routing, full CI lint/type/cov
 - [ ] Check Key Vault references resolve with the app identity and flag over-broad vault roles
 - [ ] Registry pull checks: admin credentials versus managed identity for ACR
 - [ ] Container Apps jobs coverage alongside apps
+- [ ] `exposure`: scan environment-level HTTP route configs ([#10](https://github.com/chriswayneh/acasentry/issues/10))
 
 **Done when:** each new check has demo data, tests and a documented flag.
 
