@@ -28,7 +28,7 @@ Requires Python 3.10 or newer. `--demo` uses built-in mock data, so no Azure acc
 |---|---|
 | `rbac` | Role assignments on each environment and app. Flags Owner, Contributor and guest (#EXT#) users. |
 | `exposure` | Apps with external ingress. REACHABILITY is `public` or `vnet-only` (internal VNet environment or public network access disabled). Public apps are flagged NO_IP_RULES, NO_AUTH, AUTH_NOT_ENFORCED (auth enabled but anonymous allowed, or no unauthenticated action set, which is treated conservatively) and AUTH_EXCLUDED_PATHS. |
-| `secrets` | INLINE_SECRET: a Container Apps secret not backed by a Key Vault reference (encrypted at rest by Container Apps, but not centrally managed or rotated). PLAINTEXT_ENV: an env var in a container or init container with a literal value and a secret-looking name. Values are never read into the report: the VALUE column always shows `********`, and there is no flag to reveal them. |
+| `secrets` | INLINE_SECRET: a Container Apps secret not backed by a Key Vault reference (encrypted at rest by Container Apps, but not centrally managed or rotated). PLAINTEXT_ENV: an env var in a container or init container with a literal value and a secret-looking name. VALUE column: env rows show `********` and secret rows show `-`; values are never read and there is no flag to reveal them. |
 | `identity [--resource-group RG] [--apply]` | Enables system-assigned managed identity where missing. |
 | `lockdown <app or resource ID> [--resource-group RG] [--allow-ip CIDR] [--apply]` | Switches ingress to internal, or adds IP allow rules when `--allow-ip` is given. If the name matches apps in several resource groups it refuses and lists the candidate IDs. Apps with ingress disabled are a no-op. |
 
