@@ -48,9 +48,21 @@ def _normalize(app):
         "environment": (app.managed_environment_id or "").split("/")[-1],
         "ingress": {"external": bool(ing and ing.external),
                     "ip_rules": [r.ip_address_range for r in ((ing.ip_security_restrictions or []) if ing else [])]},
-        "auth_enabled": None, "identity": str(app.identity.type) if app.identity else "None",
+        "auth_enabled": None, "identity": identity_type(app.identity),
         "secrets": secrets, "env": env,
     }
+
+
+def identity_type(identity):
+    """Normalize an identity type (enum or string) to e.g. 'SystemAssigned,UserAssigned'.
+
+    str() of the SDK enum gives 'ManagedServiceIdentityType.SYSTEM_ASSIGNED' on newer
+    Pythons, so always use .value when present.
+    """
+    if identity is None or identity.type is None:
+        return "None"
+    t = getattr(identity.type, "value", identity.type)
+    return ",".join(p.strip() for p in str(t).split(",")) or "None"
 
 
 def _auth_enabled(client, app):
@@ -68,7 +80,7 @@ def load_apps(sub, check_auth=False, client=None):
     return apps
 
 
-def load_role_assignments(sub, client=None, auth=None):
+def load_role_assignments(sub, client=None, auth=None, graph=None):
     if auth is None:
         try:
             from azure.mgmt.authorization import AuthorizationManagementClient
@@ -84,10 +96,62 @@ def load_role_assignments(sub, client=None, auth=None):
         for ra in list_all(lambda s=scope: auth.role_assignments.list_for_scope(s)):
             rd = ra.role_definition_id
             if rd not in role_names:
-                role_names[rd] = call_with_retry(lambda: auth.role_definitions.get_by_id(rd)).role_name
+                role_names[rd] = call_with_retry(lambda rd=rd: auth.role_definitions.get_by_id(rd)).role_name
+            ptype = getattr(ra.principal_type, "value", ra.principal_type)
             out.append({"scope_name": name, "principal": ra.principal_id,
-                        "type": str(ra.principal_type), "role": role_names[rd]})
+                        "type": str(ptype), "role": role_names[rd]})
+    names = resolve_principals({r["principal"] for r in out}, graph)
+    for r in out:
+        r["principal"] = names.get(r["principal"], r["principal"])
     return out
+
+
+GRAPH_URL = "https://graph.microsoft.com/v1.0/directoryObjects/getByIds"
+
+
+def _graph_post(cred):
+    import json
+    import urllib.request
+
+    token = cred.get_token("https://graph.microsoft.com/.default").token
+
+    def post(body):
+        req = urllib.request.Request(GRAPH_URL, data=json.dumps(body).encode(), method="POST",
+                                     headers={"Authorization": f"Bearer {token}",
+                                              "Content-Type": "application/json"})
+        # GRAPH_URL is a fixed https constant, so the bandit B310 scheme warning does not apply.
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
+            return json.loads(resp.read())
+    return post
+
+
+def resolve_principals(ids, graph=None):
+    """Map principal object IDs to UPN (users) or display name via Microsoft Graph.
+
+    Degrades gracefully: if Graph is unavailable or denied, IDs are kept and a
+    warning is printed once to stderr.
+    """
+    import sys
+
+    from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
+    ids = sorted(i for i in ids if i)
+    if not ids:
+        return {}
+    try:
+        post = graph or _graph_post(_cred())
+        names = {}
+        for i in range(0, len(ids), 1000):
+            body = {"ids": ids[i:i + 1000], "types": ["user", "group", "servicePrincipal"]}
+            for obj in call_with_retry(lambda body=body: post(body)).get("value", []):
+                names[obj["id"]] = obj.get("userPrincipalName") or obj.get("displayName") or obj["id"]
+        return names
+    except AcasentryError:
+        raise
+    except (OSError, ValueError, KeyError, ClientAuthenticationError, HttpResponseError) as exc:
+        print("warning: could not resolve principal names via Microsoft Graph "
+              f"({type(exc).__name__}); showing object IDs, guest detection may be incomplete. "
+              "Grant Directory.Read.All or User.Read.All to fix.", file=sys.stderr)
+        return {}
 
 
 def _update(client, app, cur):

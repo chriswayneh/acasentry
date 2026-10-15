@@ -6,8 +6,14 @@ from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
 from azure.identity import CredentialUnavailableError
 
 from acasentry import azure_live, cli
-from acasentry.resilience import (AcasentryError, call_with_retry, list_all,
-                                  retry_after_seconds, translate, validate_subscription)
+from acasentry.resilience import (
+    AcasentryError,
+    call_with_retry,
+    list_all,
+    retry_after_seconds,
+    translate,
+    validate_subscription,
+)
 
 SUB = "11111111-2222-3333-4444-555555555555"
 
