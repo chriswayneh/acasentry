@@ -7,8 +7,7 @@ Plan for acasentry by phase. Each phase ships something you can run from the com
 | Item | Details |
 | --- | --- |
 | **Latest release** | [`v0.2.0`](https://github.com/chriswayneh/acasentry/releases/tag/v0.2.0) |
-| **Now** | **Phase 2: Report** |
-| **Status** | **Planned** |
+| **Next** | Phase 2: Report (not started) |
 | **Next target** | `v0.3.0` |
 
 ## Phase map
@@ -52,7 +51,7 @@ Plan for acasentry by phase. Each phase ships something you can run from the com
 - [x] `rbac` resolves principals to UPNs or display names through Microsoft Graph, guests by `#EXT#` or `userType`
 - [x] `exposure` reports `REACHABILITY` (`public` or `vnet-only`), `AUTH_NOT_ENFORCED` and `AUTH_EXCLUDED_PATHS`
 - [x] `secrets` splits `INLINE_SECRET` and `PLAINTEXT_ENV`, covers init containers
-- [x] `--allow-ip` validated as CIDR, `0.0.0.0/0` and `::/0` refused, existing Allow rules kept
+- [x] `--allow-ip` validated as CIDR, `0.0.0.0/0` and `::/0` refused, broad ranges warned, existing Allow rules kept
 - [x] CSV formula injection escaped
 - [x] `--version`, Python 3.10 or newer
 - [x] CI on Python 3.10 to 3.13 with pinned actions and least-privilege token
@@ -88,7 +87,7 @@ Plan for acasentry by phase. Each phase ships something you can run from the com
 
 **Goal:** Cover the identity and access paths that the first checks miss.
 
-- [ ] `rbac` resolves group membership and inherited assignments from resource group and subscription scope
+- [ ] `rbac` resolves group membership and shows where each inherited assignment comes from (resource group, subscription, management group)
 - [ ] Flag stale principals (deleted or disabled users and orphaned service principals)
 - [ ] Report user-assigned identities, their role assignments and the apps sharing them
 - [ ] Check Key Vault references resolve with the app identity and flag over-broad vault roles
