@@ -40,7 +40,12 @@ def _emit(args, rows, note=""):
     print(table(HEADERS[args.command], rows))
     print(f"\n{len(rows)} row(s).{note}")
     if args.csv:
-        write_csv(args.csv, HEADERS[args.command], rows)
+        # Written before any --apply change, so a CSV failure stops the run with nothing applied.
+        try:
+            write_csv(args.csv, HEADERS[args.command], rows)
+        except OSError as exc:
+            reason = exc.strerror or type(exc).__name__
+            raise AcasentryError(f"cannot write CSV to {args.csv}: {reason}") from None
         print(f"Wrote {args.csv}")
 
 

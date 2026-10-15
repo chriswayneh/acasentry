@@ -159,7 +159,57 @@ def translate(exc, subscription=None):
             f"Azure kept returning HTTP {status} after retries. Try again later. "
             f"Details: {_first_line(exc)}"
         )
+    if is_connection_error(exc):
+        return AcasentryError(
+            "Could not reach Azure (connection failed or timed out). Check your network, "
+            "proxy settings (HTTPS_PROXY / NO_PROXY) and DNS, then retry. "
+            f"Details: {_first_line(exc)}"
+        )
+    if status == 404:
+        return AcasentryError(
+            "Azure resource not found (404). Check the app name, --resource-group and "
+            f"--subscription. Details: {_first_line(exc)}"
+        )
+    if status == 400:
+        return AcasentryError(
+            "Azure rejected the request (400 Bad Request). Check the command arguments "
+            "(app, resource group, CIDRs) and that the Microsoft.App resource provider is "
+            f"registered in the subscription. Details: {_first_line(exc)}"
+        )
+    if status == 409:
+        return AcasentryError(
+            "Azure reported a conflict (409), usually another operation in progress on the "
+            f"resource. Wait for it to finish, then retry. Details: {_first_line(exc)}"
+        )
+    if status is not None and is_azure_error(exc):
+        return AcasentryError(
+            f"Azure returned HTTP {status}. Check the command arguments and permissions, "
+            f"then retry. Details: {_first_line(exc)}"
+        )
+    if is_azure_error(exc):
+        return AcasentryError(
+            f"Azure SDK error ({name}). Check the command arguments, sign-in and network, "
+            f"then retry. Details: {_first_line(exc)}"
+        )
     return None
+
+
+def is_azure_error(exc):
+    """True for exceptions defined by the Azure SDK (azure.core, azure.identity, azure.mgmt)."""
+    return any((c.__module__ or "").startswith("azure.") for c in type(exc).__mro__)
+
+
+CONNECTION_ERROR_NAMES = {"ServiceRequestError", "ServiceResponseError", "URLError"}
+
+
+def is_connection_error(exc):
+    """Network-level failures: Azure SDK transport errors, urllib URLError, and the
+    builtin ConnectionError / TimeoutError family. HTTP errors with a status are excluded."""
+    if status_of(exc) is not None:
+        return False
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        return True
+    return any(c.__name__ in CONNECTION_ERROR_NAMES for c in type(exc).__mro__)
 
 
 def _first_line(exc):
