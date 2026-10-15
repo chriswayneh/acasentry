@@ -11,7 +11,7 @@ Fixes are released on the latest 0.2.x version only.
 
 ## Reporting a vulnerability
 
-While this repository is private, report vulnerabilities by messaging @chriswayneh on GitHub directly. Do not open an issue, pull request or discussion for a suspected vulnerability. Private reporting through the repository's **Security** tab (GitHub Security Advisories) will be turned on once the repository is public, and will then be the preferred channel.
+Report vulnerabilities privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability** (GitHub private vulnerability reporting). Do not open a public issue, pull request or discussion for a suspected vulnerability.
 
 Include what you can of:
 - the affected version (`acasentry --version`) and command,

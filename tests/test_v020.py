@@ -9,15 +9,15 @@ from acasentry import cli
 from acasentry.output import csv_safe
 
 
-def test_version_is_021_single_source():
-    assert acasentry.__version__ == "0.2.1"
+def test_version_is_022_single_source():
+    assert acasentry.__version__ == "0.2.2"
     assert importlib.metadata.version("acasentry") == acasentry.__version__
 
 
 def test_version_flag(capsys):
     with pytest.raises(SystemExit):
         cli.main(["--version"])
-    assert "0.2.1" in capsys.readouterr().out
+    assert "0.2.2" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
