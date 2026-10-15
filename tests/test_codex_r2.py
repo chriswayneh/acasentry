@@ -226,3 +226,34 @@ def test_url_error_and_connection_subclasses_are_transient():
     assert is_transient(urllib.error.URLError("dns"))
     assert is_transient(ConnectionResetError())
     assert not is_transient(urllib.error.HTTPError("u", 404, "nf", {}, None))
+
+
+# QE: non-transient polling failure re-raises, never resumes
+def test_non_transient_poll_failure_reraises_without_resume():
+    import pytest
+
+    err = HttpResponseError(message="(BadRequest) invalid ingress")
+    err.status_code = 400
+
+    class BadPoller(Poller):
+        def result(self):
+            raise err
+
+    cur = sdk_app(identity=None)
+    client, calls = fake_client(cur, poller=BadPoller())
+    with pytest.raises(HttpResponseError):
+        azure_live.enable_system_identity(SUB, APP, client=client)
+    assert len(calls) == 1 and "continuation_token" not in calls[0][1]
+
+
+# QE: existing rule descriptions survive the full-list patch
+def test_lockdown_keeps_existing_rule_description():
+    existing = rule("9.9.9.9/32", name="dns")
+    existing.description = "corp DNS"
+    cur = sdk_app(ingress=NS(external=True, ip_security_restrictions=[existing]))
+    client, calls = fake_client(cur)
+    azure_live.apply_lockdown(SUB, APP, ["10.0.0.0/8"], client=client)
+    rules = calls[0][0]["properties"]["configuration"]["ingress"][
+        "ipSecurityRestrictions"
+    ]
+    assert rules[0]["description"] == "corp DNS"

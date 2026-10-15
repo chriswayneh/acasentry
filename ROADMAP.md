@@ -44,7 +44,7 @@ Plan for acasentry by phase. Each phase ships something you can run from the com
 - [x] Actionable one-line `error:` messages for sign-in, subscription and permission failures, no tracebacks
 - [x] Full pagination of every list call
 - [x] Retries for 408, 429, 5xx and connection errors with `Retry-After` and capped backoff, SDK retry disabled so they do not stack
-- [x] Exit codes `0`, `1` (partial apply), `2` (usage or Azure errors), `130` (interrupted)
+- [x] Exit codes `0`, `1` (partial apply: some changes applied, some failed), `2` (usage or Azure errors, or an apply where every change failed and nothing was applied), `130` (interrupted)
 - [x] `--apply` prints the plan first, then `OK` or `FAILED` per resource
 - [x] `lockdown` targets by name, resource ID or `--resource-group`, and refuses ambiguous names
 - [x] `identity --resource-group` to limit scope
