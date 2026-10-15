@@ -121,7 +121,7 @@ flowchart LR
     cli -->|"live mode"| live["azure_live.py<br/>Azure SDK calls"]
     live --> res["resilience.py<br/>retries, paging, errors"]
     res --> arm["Azure Resource Manager<br/>Container Apps, RBAC"]
-    live --> msgraph["Microsoft Graph<br/>principal names"]
+    res --> msgraph["Microsoft Graph<br/>principal names"]
     demo --> checks["checks.py<br/>findings and fix plans"]
     live --> checks
     checks --> out["output.py<br/>table and CSV"]
