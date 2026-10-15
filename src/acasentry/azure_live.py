@@ -29,9 +29,15 @@ def _aca(sub):
 
 
 def _rg(resource_id):
-    parts = resource_id.split("/")
+    parts = (resource_id or "").split("/")
     lower = [p.lower() for p in parts]
-    return parts[lower.index("resourcegroups") + 1]
+    try:
+        rg = parts[lower.index("resourcegroups") + 1]
+    except (ValueError, IndexError):
+        rg = ""
+    if not rg:
+        raise AcasentryError(f"Malformed Azure resource ID (no resource group segment): '{resource_id}'")
+    return rg
 
 
 def _normalize(app):
@@ -40,13 +46,18 @@ def _normalize(app):
     secrets = [{"name": s.name, "key_vault_url": getattr(s, "key_vault_url", None)}
                for s in ((cfg.secrets or []) if cfg else [])]
     env = []
-    for c in (app.template.containers or []) if app.template else []:
-        for e in c.env or []:
-            env.append({"name": e.name, "value": e.value, "secret_ref": e.secret_ref})
+    tmpl = app.template
+    containers = list((getattr(tmpl, "containers", None) or []) if tmpl else [])
+    containers += list((getattr(tmpl, "init_containers", None) or []) if tmpl else [])
+    for c in containers:
+        for e in getattr(c, "env", None) or []:
+            env.append({"name": e.name, "value": e.value, "secret_ref": e.secret_ref,
+                        "container": getattr(c, "name", None) or "-"})
     return {
         "name": app.name, "id": app.id, "resource_group": _rg(app.id),
         "environment": (app.managed_environment_id or "").split("/")[-1],
-        "ingress": {"external": bool(ing and ing.external),
+        "environment_id": app.managed_environment_id,
+        "ingress": None if ing is None else {"enabled": True, "external": bool(ing.external),
                     "ip_rules": [r.ip_address_range for r in ((ing.ip_security_restrictions or []) if ing else [])]},
         "auth_enabled": None, "identity": identity_type(app.identity),
         "secrets": secrets, "env": env,
@@ -65,18 +76,48 @@ def identity_type(identity):
     return ",".join(p.strip() for p in str(t).split(",")) or "None"
 
 
-def _auth_enabled(client, app):
-    cfgs = list_all(lambda: client.container_apps_auth_configs.list_by_container_app(
-        app["resource_group"], app["name"]))
-    return any(c.platform and c.platform.enabled for c in cfgs)
+def _enum(v):
+    return getattr(v, "value", v)
+
+
+def auth_state(cfgs):
+    """Return (state, excluded_paths) where state is 'required', 'optional' or 'off'.
+
+    Enabled auth with unauthenticatedClientAction AllowAnonymous does not require
+    sign-in, so it is 'optional'.
+    """
+    state, excluded = "off", False
+    for c in cfgs:
+        if not (c.platform and c.platform.enabled):
+            continue
+        gv = getattr(c, "global_validation", None)
+        action = _enum(getattr(gv, "unauthenticated_client_action", None)) if gv else None
+        cur = "optional" if (action is None or str(action) == "AllowAnonymous") else "required"
+        if cur == "required" or state == "off":
+            state = cur
+        if gv is not None and getattr(gv, "excluded_paths", None):
+            excluded = True
+    return state, excluded
+
+
+def _env_internal(env):
+    vnet = getattr(env, "vnet_configuration", None)
+    if vnet is not None and getattr(vnet, "internal", False):
+        return True
+    return str(_enum(getattr(env, "public_network_access", None))) == "Disabled"
 
 
 def load_apps(sub, check_auth=False, client=None):
     client = client or _aca(sub)
     apps = [_normalize(a) for a in list_all(client.container_apps.list_by_subscription)]
     if check_auth:
+        internal = {(e.id or "").lower(): _env_internal(e)
+                    for e in list_all(client.managed_environments.list_by_subscription)}
         for a in apps:
-            a["auth_enabled"] = _auth_enabled(client, a)
+            cfgs = list_all(lambda a=a: client.container_apps_auth_configs.list_by_container_app(
+                a["resource_group"], a["name"]))
+            a["auth_enabled"], a["auth_excluded_paths"] = auth_state(cfgs)
+            a["env_internal"] = internal.get((a.get("environment_id") or "").lower(), False)
     return apps
 
 

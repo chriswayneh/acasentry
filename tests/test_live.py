@@ -112,11 +112,12 @@ def test_load_apps_paginates_apps_and_auth_configs():
     auth_pages = {"a": [[NS(platform=NS(enabled=False))], [NS(platform=NS(enabled=True))]],
                   "b": [[]], "c": [[NS(platform=None)]]}
     client = NS(container_apps=NS(list_by_subscription=apps),
+                managed_environments=NS(list_by_subscription=lambda: iter([])),
                 container_apps_auth_configs=NS(
                     list_by_container_app=lambda rg, n: iter(x for p in auth_pages[n] for x in p)))
     out = azure_live.load_apps(SUB, check_auth=True, client=client)
     assert [a["name"] for a in out] == ["a", "b", "c"]
-    assert [a["auth_enabled"] for a in out] == [True, False, False]
+    assert [a["auth_enabled"] for a in out] == ["optional", "off", "off"]
 
 
 def test_load_role_assignments_paginates():

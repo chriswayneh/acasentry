@@ -140,7 +140,7 @@ def test_lockdown_missing_ingress_clean_error(cur):
 
 def test_normalize_handles_missing_ingress_and_config():
     app = sdk_app("a", ingress=None)
-    assert azure_live._normalize(app)["ingress"] == {"external": False, "ip_rules": []}
+    assert azure_live._normalize(app)["ingress"] is None
     bare = NS(name="b", id=RID + "b", managed_environment_id=None, identity=None,
               configuration=None, template=None)
     n = azure_live._normalize(bare)
