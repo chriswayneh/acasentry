@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0
+## 0.2.0 (2026-10-14)
 
 ### Breaking changes
 - Python 3.9 is no longer supported. acasentry now requires Python 3.10 or newer.

@@ -12,7 +12,7 @@ cd acasentry
 pip install -e .
 ```
 
-Requires Python 3.10 or newer.
+Requires Python 3.10 or newer. Check the installed version with `acasentry --version`.
 
 ## Quick start (demo mode, no Azure needed)
 
