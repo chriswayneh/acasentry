@@ -1,11 +1,11 @@
 """acasentry command line interface."""
 import argparse
+import ipaddress
 import sys
 
 from . import checks, demo
 from .output import table, write_csv
 from .resilience import AcasentryError, translate, validate_subscription
-import ipaddress
 
 HEADERS = {
     "rbac": ["SCOPE", "PRINCIPAL", "TYPE", "ROLE", "FLAGS"],
@@ -96,6 +96,8 @@ def build_parser():
 
 
 def _cidr(value):
+    if "/" not in value and not (value.count(".") == 3 or ":" in value):
+        raise argparse.ArgumentTypeError(f"invalid CIDR: {value} (use e.g. 203.0.113.0/24 or 203.0.113.7)")
     try:
         net = ipaddress.ip_network(value, strict=False)
     except ValueError:

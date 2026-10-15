@@ -1,4 +1,8 @@
-"""Built-in mock data. No Azure access required."""
+"""Built-in mock data. No Azure access required.
+
+The `# nosec B105` markers below are bandit false positives: these are fake
+demo values used to exercise the secrets check, not real credentials.
+"""
 
 SUB = "00000000-0000-0000-0000-000000000000"
 RG = "rg-demo"
@@ -17,23 +21,23 @@ APPS = [
         "identity": "None",
         "secrets": [{"name": "db-password", "key_vault_url": None},
                     {"name": "stripe-key", "key_vault_url": "https://kv-demo.vault.azure.net/secrets/stripe-key"}],
-        "env": [{"name": "API_TOKEN", "value": "abc123", "secret_ref": None},
-                {"name": "DB_PASSWORD", "value": None, "secret_ref": "db-password"},
-                {"name": "LOG_LEVEL", "value": "info", "secret_ref": None}],
+        "env": [{"name": "API_TOKEN", "value": "abc123", "secret_ref": None},  # nosec B105
+                {"name": "DB_PASSWORD", "value": None, "secret_ref": "db-password"},  # nosec B105
+                {"name": "LOG_LEVEL", "value": "info", "secret_ref": None}],  # nosec B105
     },
     {
         "name": "web-frontend", "id": _id("containerApps", "web-frontend"), "environment": "cae-prod",
         "ingress": {"external": True, "ip_rules": ["203.0.113.0/24"]}, "auth_enabled": True,
         "identity": "SystemAssigned",
         "secrets": [{"name": "session-key", "key_vault_url": "https://kv-demo.vault.azure.net/secrets/session-key"}],
-        "env": [{"name": "LOG_LEVEL", "value": "warn", "secret_ref": None}],
+        "env": [{"name": "LOG_LEVEL", "value": "warn", "secret_ref": None}],  # nosec B105
     },
     {
         "name": "billing-worker", "id": _id("containerApps", "billing-worker"), "environment": "cae-prod",
         "ingress": {"external": False, "ip_rules": []}, "auth_enabled": False,
         "identity": "UserAssigned",
         "secrets": [{"name": "smtp-pass", "key_vault_url": None}],
-        "env": [{"name": "SMTP_PASSWORD", "value": "hunter2", "secret_ref": None}],
+        "env": [{"name": "SMTP_PASSWORD", "value": "hunter2", "secret_ref": None}],  # nosec B105
     },
 ]
 
