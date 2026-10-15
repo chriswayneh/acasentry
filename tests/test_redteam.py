@@ -1,4 +1,5 @@
 """Red Team findings: Graph token refresh and secret value handling."""
+
 import io
 import json
 import urllib.error
@@ -29,6 +30,7 @@ class Clock:
 
 class Opener:
     """Fake urlopen: records Authorization headers, optionally fails with given statuses."""
+
     def __init__(self, fail=()):
         self.auth, self.fail = [], list(fail)
 
@@ -108,9 +110,14 @@ def test_graph_403_not_retried_with_new_token():
 # 2. secret values never retained or printed
 def _live_app():
     env = [NS(name="API_TOKEN", value=SECRET, secret_ref=None)]
-    return NS(name="a", id=f"/subscriptions/{SUB}/resourceGroups/rg/providers/Microsoft.App/containerApps/a",
-              managed_environment_id=None, identity=None, configuration=None,
-              template=NS(containers=[NS(name="main", env=env)], init_containers=None))
+    return NS(
+        name="a",
+        id=f"/subscriptions/{SUB}/resourceGroups/rg/providers/Microsoft.App/containerApps/a",
+        managed_environment_id=None,
+        identity=None,
+        configuration=None,
+        template=NS(containers=[NS(name="main", env=env)], init_containers=None),
+    )
 
 
 def test_normalize_does_not_retain_secret_value():
@@ -120,8 +127,11 @@ def test_normalize_does_not_retain_secret_value():
 
 
 def test_secrets_output_masks_values(monkeypatch, capsys, tmp_path):
-    monkeypatch.setattr(azure_live, "load_apps",
-                        lambda sub, check_auth=False: [azure_live._normalize(_live_app())])
+    monkeypatch.setattr(
+        azure_live,
+        "load_apps",
+        lambda sub, check_auth=False: [azure_live._normalize(_live_app())],
+    )
     f = tmp_path / "o.csv"
     assert cli.main(["secrets", "--subscription", SUB, "--csv", str(f)]) == 0
     out = capsys.readouterr().out
@@ -136,7 +146,10 @@ def test_demo_data_holds_no_values():
 
 def test_persistent_graph_401_says_sign_in_again(capsys):
     def post(body):
-        raise urllib.error.HTTPError(azure_live.GRAPH_URL, 401, "Unauthorized", {}, None)
+        raise urllib.error.HTTPError(
+            azure_live.GRAPH_URL, 401, "Unauthorized", {}, None
+        )
+
     assert azure_live.resolve_principals({"x"}, graph=post) == {}
     err = capsys.readouterr().err
     assert "rejected the sign-in token" in err and "az login" in err
@@ -148,7 +161,10 @@ def test_graph_token_auth_error_says_az_login(capsys):
 
     class ExpiredCred:
         def get_token(self, scope):
-            raise ClientAuthenticationError("AADSTS700082: The refresh token has expired")
+            raise ClientAuthenticationError(
+                "AADSTS700082: The refresh token has expired"
+            )
+
     s = azure_live.GraphSession(ExpiredCred(), opener=Opener())
     assert azure_live.resolve_principals({"x"}, graph=s) == {}
     err = capsys.readouterr().err
