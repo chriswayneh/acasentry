@@ -67,6 +67,7 @@ def run(args):
             rows = checks.lockdown_plan(app, args.allow_ip)
         except (LookupError, ValueError) as exc:
             raise AcasentryError(str(exc))
+        warn_broad(args.allow_ip)
         targets = [app] if rows else []
         action = lambda a: _live().apply_lockdown(args.subscription, a, args.allow_ip)
     return _plan_and_apply(args, rows, targets, action)
@@ -144,10 +145,16 @@ def _cidr(value):
         raise argparse.ArgumentTypeError(f"invalid CIDR: {value}")
     if net.prefixlen == 0:
         raise argparse.ArgumentTypeError(f"{value} allows the whole internet; refusing")
-    if net.prefixlen <= broad_prefix_limit(net):
-        print(f"warning: --allow-ip {net} is very broad ({net.num_addresses:,} addresses); "
-              "double-check this is intended.", file=sys.stderr)
     return str(net)
+
+
+def warn_broad(cidrs):
+    """Warn about very broad ranges. Called only after every argument and the target app validated."""
+    for c in cidrs:
+        net = ipaddress.ip_network(c)
+        if net.prefixlen <= broad_prefix_limit(net):
+            print(f"warning: --allow-ip {net} is very broad ({net.num_addresses:,} addresses); "
+                  "double-check this is intended.", file=sys.stderr)
 
 
 def broad_prefix_limit(net):

@@ -21,14 +21,39 @@ def test_version_flag(capsys):
 
 @pytest.mark.parametrize("cidr", ["10.0.0.0/8", "128.0.0.0/1", "2001:db8::/32", "8000::/1"])
 def test_broad_allow_ip_warns(cidr, capsys):
-    cli.build_parser().parse_args(["lockdown", "x", "--allow-ip", cidr])
+    assert cli.main(["lockdown", "orders-api", "--demo", "--allow-ip", cidr]) == 0
     assert "very broad" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("cidr", ["10.0.0.0/9", "203.0.113.7", "2001:db8::/33"])
 def test_normal_allow_ip_no_warning(cidr, capsys):
-    cli.build_parser().parse_args(["lockdown", "x", "--allow-ip", cidr])
+    assert cli.main(["lockdown", "orders-api", "--demo", "--allow-ip", cidr]) == 0
     assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("argv", [
+    ["lockdown", "orders-api", "--demo", "--allow-ip", "10.0.0.0/8", "--allow-ip", "nope"],
+    ["lockdown", "no-such-app", "--demo", "--allow-ip", "10.0.0.0/8"],
+])
+def test_broad_warning_only_after_validation(argv, capsys, monkeypatch):
+    from acasentry import demo
+    dup = dict(demo.APPS[0], resource_group="rg-other",
+               id=demo.APPS[0]["id"].replace("rg-demo", "rg-other"))
+    monkeypatch.setattr(demo, "APPS", demo.APPS + [dup])
+    try:
+        rc = cli.main(argv)
+    except SystemExit as exc:
+        rc = exc.code
+    assert rc == 2
+    assert "very broad" not in capsys.readouterr().err
+    # ambiguous name also fails without warning
+    assert cli.main(["lockdown", "orders-api", "--demo", "--allow-ip", "10.0.0.0/8"]) == 2
+    err = capsys.readouterr().err
+    assert "matches 2 apps" in err and "very broad" not in err
+    # and succeeds with the warning once the target is unambiguous
+    assert cli.main(["lockdown", "orders-api", "--resource-group", "rg-demo", "--demo",
+                     "--allow-ip", "10.0.0.0/8"]) == 0
+    assert "very broad" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("cidr", ["0.0.0.0/0", "::/0"])
