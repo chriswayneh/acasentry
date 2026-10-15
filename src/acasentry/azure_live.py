@@ -1,6 +1,12 @@
 """Live Azure access. Azure SDKs are imported lazily."""
 
-from .resilience import AcasentryError, call_with_retry, list_all, status_of
+from .resilience import (
+    AcasentryError,
+    call_with_retry,
+    is_transient,
+    list_all,
+    status_of,
+)
 
 
 def _import_error(exc):
@@ -80,6 +86,11 @@ def _normalize(app):
             "ip_rules": [
                 r.ip_address_range
                 for r in ((ing.ip_security_restrictions or []) if ing else [])
+            ],
+            "deny_rules": [
+                r.ip_address_range
+                for r in ((ing.ip_security_restrictions or []) if ing else [])
+                if str(_enum(getattr(r, "action", "")) or "").lower() == "deny"
             ],
         },
         "auth_enabled": None,
@@ -187,6 +198,8 @@ def load_role_assignments(sub, client=None, auth=None, graph=None):
             out.append(
                 {
                     "scope_name": name,
+                    "scope_id": scope,
+                    "principal_id": ra.principal_id,
                     "principal": ra.principal_id,
                     "type": str(ptype),
                     "role": role_names[rd],
@@ -326,71 +339,108 @@ def resolve_principals(ids, graph=None):
         return {}
 
 
-def _update(client, app, cur):
-    call_with_retry(
+def _patch(client, app, body):
+    """Send a narrow JSON merge-patch body and wait for it to finish.
+
+    The Container Apps SDK has no ETag / If-Match support, so concurrency safety
+    comes from sending only the fields acasentry changes (computed from a fresh
+    read just before the call). Submission is retried on transient errors (the
+    narrow body makes a repeat idempotent). If polling fails, polling is resumed
+    from the continuation token; the change is never resubmitted.
+    """
+    rg, name = app["resource_group"], app["name"]
+    poller = call_with_retry(lambda: client.container_apps.begin_update(rg, name, body))
+    try:
+        return poller.result()
+    except Exception as exc:
+        if not is_transient(exc):
+            raise
+    token = poller.continuation_token()
+    return call_with_retry(
         lambda: client.container_apps.begin_update(
-            app["resource_group"], app["name"], cur
+            rg, name, body, continuation_token=token
         ).result()
     )
 
 
-def enable_system_identity(sub, app, client=None):
-    from azure.mgmt.appcontainers.models import ManagedServiceIdentity
-
-    client = client or _aca(sub)
-    cur = call_with_retry(
+def _fresh(client, app):
+    return call_with_retry(
         lambda: client.container_apps.get(app["resource_group"], app["name"])
     )
-    new_type = (
-        "SystemAssigned" if app["identity"] == "None" else "SystemAssigned,UserAssigned"
-    )
-    cur.identity = ManagedServiceIdentity(
-        type=new_type,
-        user_assigned_identities=cur.identity.user_assigned_identities
+
+
+def enable_system_identity(sub, app, client=None):
+    """Add a system-assigned identity, keeping any user-assigned identities.
+
+    The current identity is taken from a fresh read, not from the earlier listing.
+    """
+    client = client or _aca(sub)
+    cur = _fresh(client, app)
+    current = identity_type(cur.identity)
+    if "SystemAssigned" in current:
+        return
+    uai = (
+        getattr(cur.identity, "user_assigned_identities", None)
         if cur.identity
-        else None,
+        else None
     )
-    _update(client, app, cur)
+    identity = {"type": "SystemAssigned" if not uai else "SystemAssigned,UserAssigned"}
+    if uai:
+        identity["userAssignedIdentities"] = {k: {} for k in uai}
+    _patch(client, app, {"identity": identity})
 
 
 def apply_lockdown(sub, app, allow_ips, client=None):
-    from azure.mgmt.appcontainers.models import IpSecurityRestrictionRule
-
     client = client or _aca(sub)
-    cur = call_with_retry(
-        lambda: client.container_apps.get(app["resource_group"], app["name"])
-    )
+    cur = _fresh(client, app)
     if not cur.configuration or not cur.configuration.ingress:
         raise AcasentryError(
             f"App '{app['name']}' has no ingress configured; nothing to lock down."
         )
+    ing = cur.configuration.ingress
     if allow_ips:
-        ing = cur.configuration.ingress
-        ing.ip_security_restrictions = merge_ip_rules(
-            ing.ip_security_restrictions, allow_ips, IpSecurityRestrictionRule
-        )
+        rules = merge_ip_rules(ing.ip_security_restrictions, allow_ips)
+        ingress = {"ipSecurityRestrictions": rules}
     else:
-        cur.configuration.ingress.external = False
-    _update(client, app, cur)
+        ingress = {"external": False}
+    _patch(client, app, {"properties": {"configuration": {"ingress": ingress}}})
 
 
-def merge_ip_rules(existing, allow_ips, rule_cls):
-    """Keep existing rules and append Allow rules for CIDRs not already present."""
+def _rule_dict(r):
+    d = {
+        "name": r.name,
+        "ipAddressRange": r.ip_address_range,
+        "action": str(_enum(r.action)),
+    }
+    if getattr(r, "description", None):
+        d["description"] = r.description
+    return d
+
+
+def merge_ip_rules(existing, allow_ips):
+    """Keep existing rules and append Allow rules for CIDRs not already present.
+
+    Returns JSON-ready dicts. New rule names never collide with existing ones.
+    """
     existing = list(existing or [])
-    if any((getattr(r, "action", "") or "").lower() == "deny" for r in existing):
+    if any(
+        str(_enum(getattr(r, "action", "")) or "").lower() == "deny" for r in existing
+    ):
         raise AcasentryError(
             "This app has Deny IP rules; Azure does not allow mixing Allow and Deny rules. "
             "Review its ingress rules manually."
         )
-    have = {r.ip_address_range for r in existing}
+    out = [_rule_dict(r) for r in existing]
+    have = {r["ipAddressRange"] for r in out}
+    names = {r["name"] for r in out}
+    n = 0
     for ip in allow_ips:
-        if ip not in have:
-            existing.append(
-                rule_cls(
-                    name=f"acasentry-allow-{len(existing)}",
-                    ip_address_range=ip,
-                    action="Allow",
-                )
-            )
-            have.add(ip)
-    return existing
+        if ip in have:
+            continue
+        while f"acasentry-allow-{n}" in names:
+            n += 1
+        name = f"acasentry-allow-{n}"
+        out.append({"name": name, "ipAddressRange": ip, "action": "Allow"})
+        have.add(ip)
+        names.add(name)
+    return out

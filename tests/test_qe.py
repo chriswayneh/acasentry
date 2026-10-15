@@ -189,9 +189,8 @@ def test_lockdown_keeps_existing_9999_rule():
         SUB, {"name": "a", "resource_group": "rg1"}, ["10.0.0.0/8"], client=client
     )
     sent = client.container_apps.begin_update.call_args[0][2]
-    assert [
-        r.ip_address_range for r in sent.configuration.ingress.ip_security_restrictions
-    ] == ["9.9.9.9/32", "10.0.0.0/8"]
+    rules = sent["properties"]["configuration"]["ingress"]["ipSecurityRestrictions"]
+    assert [r["ipAddressRange"] for r in rules] == ["9.9.9.9/32", "10.0.0.0/8"]
 
 
 # 6. missing ingress
@@ -240,8 +239,8 @@ def test_identity_apply_live_paths():
         client=client,
     )
     sent = client.container_apps.begin_update.call_args[0][2]
-    assert sent.identity.type == "SystemAssigned,UserAssigned"
-    assert "/id/u" in sent.identity.user_assigned_identities
+    assert sent["identity"]["type"] == "SystemAssigned,UserAssigned"
+    assert "/id/u" in sent["identity"]["userAssignedIdentities"]
 
 
 def test_lockdown_internal_live_path():
@@ -255,7 +254,8 @@ def test_lockdown_internal_live_path():
     azure_live.apply_lockdown(
         SUB, {"name": "a", "resource_group": "rg1"}, [], client=client
     )
-    assert cur.configuration.ingress.external is False
+    sent = client.container_apps.begin_update.call_args[0][2]
+    assert sent == {"properties": {"configuration": {"ingress": {"external": False}}}}
 
 
 def test_cli_apply_live_end_to_end(monkeypatch, capsys):

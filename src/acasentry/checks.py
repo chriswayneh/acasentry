@@ -22,6 +22,8 @@ def rbac_rows(assignments):
                 a["type"],
                 a["role"],
                 ",".join(flags) or "ok",
+                a.get("scope_id") or "-",
+                a.get("principal_id") or "-",
             ]
         )
     return rows
@@ -142,6 +144,12 @@ def lockdown_plan(app, allow_ips):
         return []
     ing = app["ingress"]
     if allow_ips:
+        if ing.get("deny_rules"):
+            raise ValueError(
+                f"App '{app['name']}' has Deny IP rules ({', '.join(ing['deny_rules'])}); "
+                "Azure does not allow mixing Allow and Deny rules, so --allow-ip is refused. "
+                "Review its ingress rules manually."
+            )
         current = list(ing.get("ip_rules") or [])
         planned = current + [ip for ip in dict.fromkeys(allow_ips) if ip not in current]
         if planned == current:

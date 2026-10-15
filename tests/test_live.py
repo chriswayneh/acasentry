@@ -260,12 +260,11 @@ def test_cli_rejects_bad_or_open_cidr():
 
 
 def test_merge_ip_rules_keeps_existing_and_dedupes():
-    Rule = lambda **k: NS(**k)
     existing = [NS(name="corp", ip_address_range="203.0.113.0/24", action="Allow")]
     out = azure_live.merge_ip_rules(
-        existing, ["203.0.113.0/24", "10.0.0.0/8", "10.0.0.0/8"], Rule
+        existing, ["203.0.113.0/24", "10.0.0.0/8", "10.0.0.0/8"]
     )
-    assert [r.ip_address_range for r in out] == ["203.0.113.0/24", "10.0.0.0/8"]
+    assert [r["ipAddressRange"] for r in out] == ["203.0.113.0/24", "10.0.0.0/8"]
 
 
 def test_merge_ip_rules_refuses_with_deny_rules():
@@ -273,7 +272,6 @@ def test_merge_ip_rules_refuses_with_deny_rules():
         azure_live.merge_ip_rules(
             [NS(name="x", ip_address_range="1.2.3.4/32", action="Deny")],
             ["10.0.0.0/8"],
-            lambda **k: NS(**k),
         )
 
 

@@ -26,9 +26,9 @@ Requires Python 3.10 or newer. `--demo` uses built-in mock data, so no Azure acc
 
 | Command | What it does |
 |---|---|
-| `rbac` | Role assignments on each environment and app. Flags Owner, Contributor and guest (#EXT#) users. |
+| `rbac` | Role assignments on each environment and app. Flags Owner, Contributor and guest (#EXT#) users. SCOPE_ID and PRINCIPAL_ID keep rows distinct when names repeat. |
 | `exposure` | Apps with external ingress. REACHABILITY is `public` or `vnet-only` (internal VNet environment or public network access disabled). Public apps are flagged NO_IP_RULES, NO_AUTH, AUTH_NOT_ENFORCED (auth enabled but anonymous allowed, or no unauthenticated action set, which is treated conservatively) and AUTH_EXCLUDED_PATHS. |
-| `secrets` | INLINE_SECRET: a Container Apps secret not backed by a Key Vault reference (encrypted at rest by Container Apps, but not centrally managed or rotated). PLAINTEXT_ENV: an env var in a container or init container with a literal value and a secret-looking name. VALUE column: env rows show `********` and secret rows show `-`; values are never read and there is no flag to reveal them. |
+| `secrets` | INLINE_SECRET: a Container Apps secret not backed by a Key Vault reference (encrypted at rest by Container Apps, but not centrally managed or rotated). PLAINTEXT_ENV: an env var in a container or init container with a literal value and a secret-looking name. VALUE column: env rows show `********` and secret rows show `-`; values are never kept or shown (acasentry only records whether a literal value is set) and there is no flag to reveal them. |
 | `identity [--resource-group RG] [--apply]` | Enables system-assigned managed identity where missing. |
 | `lockdown <app or resource ID> [--resource-group RG] [--allow-ip CIDR] [--apply]` | Switches ingress to internal, or adds IP allow rules when `--allow-ip` is given. If the name matches apps in several resource groups it refuses and lists the candidate IDs. Apps with ingress disabled are a no-op. |
 
@@ -58,9 +58,10 @@ acasentry exposure --subscription <subscription-guid>
 - `rbac` resolves principal object IDs to UPNs or display names through Microsoft Graph (needs User.Read.All or Directory.Read.All). Guests are detected by `#EXT#` in the UPN or `userType` Guest. If Graph is denied, object IDs are shown with a warning and guest detection may be incomplete.
 - Every list call is read to the last page.
 - Throttling (429) and transient errors (408, 5xx, connection errors) are retried up to 5 attempts with exponential backoff capped at 30 seconds per wait; `Retry-After` is honored within that cap. The Azure SDK pipeline retry is turned off so the two do not stack.
-- With `--apply`, the plan is printed first, then each resource is changed and reported as `OK` or `FAILED`. If any fail, a PARTIAL summary is printed and the exit code is 1.
+- With `--apply`, the plan is printed first, then each resource is changed and reported as `OK` or `FAILED`. If some succeed and some fail, a PARTIAL summary is printed and the exit code is 1; if none succeed, the exit code is 2 and nothing was applied.
 - CSV cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` so spreadsheets do not run them as formulas (the `-` placeholder cell is left as is).
-- `lockdown --allow-ip` keeps existing Allow rules and appends new CIDRs (duplicates skipped). Apps with Deny rules are refused, since Azure does not allow mixing Allow and Deny.
+- `lockdown --allow-ip` keeps existing Allow rules and appends new CIDRs (duplicates skipped). Apps with Deny rules are refused when the plan is built (error, exit code 2, nothing applied), since Azure does not allow mixing Allow and Deny.
+- Changes are sent as narrow updates: `identity` sends only the identity block, `lockdown` sends only `ingress.external` or `ingress.ipSecurityRestrictions`, built from a fresh read of the app just before the update, so other settings changed concurrently are not overwritten. The Azure API offers no ETag check for container apps, so two tools changing the same IP rule list at the same moment can still race. If polling a change fails, acasentry resumes polling instead of resending it.
 - `--allow-ip` must be a valid CIDR; `0.0.0.0/0` and `::/0` are refused, and very broad ranges (IPv4 /1 to /8, IPv6 /1 to /32) print a warning.
 
 ### Sample output
@@ -69,14 +70,14 @@ Real output from running each demo command:
 
 ```
 $ acasentry rbac --demo
-SCOPE           PRINCIPAL                                     TYPE              ROLE                 FLAGS
---------------  --------------------------------------------  ----------------  -------------------  -----------------
-cae-prod        alice@contoso.com                             User              Owner                OWNER
-cae-prod        ops-team                                      Group             Reader               ok
-orders-api      bob_partner.com#EXT#@contoso.onmicrosoft.com  User              Contributor          CONTRIBUTOR,GUEST
-orders-api      ci-deployer                                   ServicePrincipal  Contributor          CONTRIBUTOR
-web-frontend    carol@contoso.com                             User              Reader               ok
-billing-worker  dave@contoso.com                              User              ContainerApp Reader  ok
+SCOPE           PRINCIPAL                                     TYPE              ROLE                 FLAGS              SCOPE_ID                                                                                                                         PRINCIPAL_ID
+--------------  --------------------------------------------  ----------------  -------------------  -----------------  -------------------------------------------------------------------------------------------------------------------------------  ------------------------------------
+cae-prod        alice@contoso.com                             User              Owner                OWNER              /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.App/managedEnvironments/cae-prod  00000000-0000-0000-0000-000000000001
+cae-prod        ops-team                                      Group             Reader               ok                 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.App/managedEnvironments/cae-prod  00000000-0000-0000-0000-000000000002
+orders-api      bob_partner.com#EXT#@contoso.onmicrosoft.com  User              Contributor          CONTRIBUTOR,GUEST  /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.App/containerApps/orders-api      00000000-0000-0000-0000-000000000003
+orders-api      ci-deployer                                   ServicePrincipal  Contributor          CONTRIBUTOR        /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.App/containerApps/orders-api      00000000-0000-0000-0000-000000000004
+web-frontend    carol@contoso.com                             User              Reader               ok                 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.App/containerApps/web-frontend    00000000-0000-0000-0000-000000000005
+billing-worker  dave@contoso.com                              User              ContainerApp Reader  ok                 /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-demo/providers/Microsoft.App/containerApps/billing-worker  00000000-0000-0000-0000-000000000006
 
 6 row(s).
 $ acasentry exposure --demo
