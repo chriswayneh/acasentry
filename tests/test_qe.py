@@ -205,3 +205,23 @@ def test_missing_sdk_gives_clean_error(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", fake)
     with pytest.raises(AcasentryError, match="pip install"):
         azure_live._cred()
+
+
+# review fixes
+def test_graph_http_429_is_retried():
+    import urllib.error
+    calls = []
+
+    def post(body):
+        calls.append(1)
+        if len(calls) == 1:
+            raise urllib.error.HTTPError(azure_live.GRAPH_URL, 429, "busy", {"Retry-After": "0"}, None)
+        return {"value": [{"id": "x", "displayName": "X"}]}
+    assert azure_live.resolve_principals({"x"}, graph=post) == {"x": "X"}
+    assert len(calls) == 2
+
+
+def test_guest_by_usertype_without_ext():
+    names = azure_live.resolve_principals({"g"}, graph=lambda b: {"value": [
+        {"id": "g", "userPrincipalName": "guest@other.com", "userType": "Guest"}]})
+    assert checks.is_guest(names["g"])

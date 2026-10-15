@@ -143,7 +143,10 @@ def resolve_principals(ids, graph=None):
         for i in range(0, len(ids), 1000):
             body = {"ids": ids[i:i + 1000], "types": ["user", "group", "servicePrincipal"]}
             for obj in call_with_retry(lambda body=body: post(body)).get("value", []):
-                names[obj["id"]] = obj.get("userPrincipalName") or obj.get("displayName") or obj["id"]
+                name = obj.get("userPrincipalName") or obj.get("displayName") or obj["id"]
+                if obj.get("userType") == "Guest" and "#EXT#" not in name.upper():
+                    name += " [guest]"
+                names[obj["id"]] = name
         return names
     except AcasentryError:
         raise

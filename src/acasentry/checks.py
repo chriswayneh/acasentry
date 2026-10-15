@@ -4,7 +4,7 @@ PRIVILEGED = {"Owner", "Contributor"}
 
 
 def is_guest(principal):
-    return "#EXT#" in principal.upper()
+    return "#EXT#" in principal.upper() or principal.endswith(" [guest]")
 
 
 def rbac_rows(assignments):
