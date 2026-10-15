@@ -54,6 +54,15 @@ def exposure_rows(apps):
 SENSITIVE = ("PASSWORD", "SECRET", "TOKEN", "KEY", "CONN")
 
 
+VALUE_MASK = "********"
+
+
+def has_literal(env):
+    """True when the env var has a literal value. Values themselves are never shown:
+    the VALUE column is always the fixed mask VALUE_MASK."""
+    return bool(env.get("has_value", env.get("value")))
+
+
 def secrets_rows(apps):
     """INLINE_SECRET: a Container Apps secret not backed by a Key Vault reference
     (stored encrypted by Container Apps, but not centrally managed or rotated).
@@ -63,10 +72,10 @@ def secrets_rows(apps):
     for app in apps:
         for s in app.get("secrets", []):
             if not s.get("key_vault_url"):
-                rows.append([app["name"], "secret", "-", s["name"], "INLINE_SECRET"])
+                rows.append([app["name"], "secret", "-", s["name"], "-", "INLINE_SECRET"])
         for e in app.get("env", []):
-            if e.get("value") and not e.get("secret_ref") and any(k in e["name"].upper() for k in SENSITIVE):
-                rows.append([app["name"], "env", e.get("container") or "-", e["name"], "PLAINTEXT_ENV"])
+            if has_literal(e) and not e.get("secret_ref") and any(k in e["name"].upper() for k in SENSITIVE):
+                rows.append([app["name"], "env", e.get("container") or "-", e["name"], VALUE_MASK, "PLAINTEXT_ENV"])
     return rows
 
 

@@ -10,7 +10,7 @@ from .resilience import AcasentryError, translate, validate_subscription
 HEADERS = {
     "rbac": ["SCOPE", "PRINCIPAL", "TYPE", "ROLE", "FLAGS"],
     "exposure": ["APP", "REACHABILITY", "IP_RULES", "AUTH", "FLAGS"],
-    "secrets": ["APP", "KIND", "CONTAINER", "NAME", "FLAG"],
+    "secrets": ["APP", "KIND", "CONTAINER", "NAME", "VALUE", "FLAG"],
     "identity": ["APP", "RESOURCE_GROUP", "CURRENT", "PLANNED"],
     "lockdown": ["APP", "RESOURCE_GROUP", "SETTING", "CURRENT", "PLANNED"],
 }

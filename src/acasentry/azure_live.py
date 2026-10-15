@@ -51,7 +51,8 @@ def _normalize(app):
     containers += list((getattr(tmpl, "init_containers", None) or []) if tmpl else [])
     for c in containers:
         for e in getattr(c, "env", None) or []:
-            env.append({"name": e.name, "value": e.value, "secret_ref": e.secret_ref,
+            # Never keep the raw value: only whether a literal value is set.
+            env.append({"name": e.name, "has_value": bool(e.value), "secret_ref": e.secret_ref,
                         "container": getattr(c, "name", None) or "-"})
     return {
         "name": app.name, "id": app.id, "resource_group": _rg(app.id),
@@ -150,20 +151,49 @@ def load_role_assignments(sub, client=None, auth=None, graph=None):
 GRAPH_URL = "https://graph.microsoft.com/v1.0/directoryObjects/getByIds"
 
 
-def _graph_post(cred):
-    import json
-    import urllib.request
+GRAPH_SCOPE = "https://graph.microsoft.com/.default"
+TOKEN_SKEW_SECONDS = 300
 
-    token = cred.get_token("https://graph.microsoft.com/.default").token
 
-    def post(body):
+class GraphSession:
+    """Calls Microsoft Graph with a cached token that is refreshed when it is
+    expired or within TOKEN_SKEW_SECONDS of expiring, and once more on a 401."""
+
+    def __init__(self, cred, clock=None, opener=None, skew=TOKEN_SKEW_SECONDS):
+        import time
+        import urllib.request
+        self.cred, self.skew = cred, skew
+        self.clock = clock or time.time
+        self.opener = opener or urllib.request.urlopen
+        self._token = None
+
+    def token(self, force=False):
+        if force or self._token is None or self._token.expires_on - self.skew <= self.clock():
+            self._token = self.cred.get_token(GRAPH_SCOPE)
+        return self._token.token
+
+    def _send(self, body, token):
+        import json
+        import urllib.request
         req = urllib.request.Request(GRAPH_URL, data=json.dumps(body).encode(), method="POST",
                                      headers={"Authorization": f"Bearer {token}",
                                               "Content-Type": "application/json"})
         # GRAPH_URL is a fixed https constant, so the bandit B310 scheme warning does not apply.
-        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
+        with self.opener(req, timeout=30) as resp:  # nosec B310
             return json.loads(resp.read())
-    return post
+
+    def __call__(self, body):
+        import urllib.error
+        try:
+            return self._send(body, self.token())
+        except urllib.error.HTTPError as exc:
+            if exc.code != 401:
+                raise
+            return self._send(body, self.token(force=True))
+
+
+def _graph_post(cred):
+    return GraphSession(cred)
 
 
 def resolve_principals(ids, graph=None):

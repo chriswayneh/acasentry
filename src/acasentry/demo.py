@@ -11,7 +11,8 @@ RG = "rg-demo"
 
 
 def _env(name, value=None, ref=None, container="app"):
-    return {"name": name, "value": value, "secret_ref": ref, "container": container}
+    # Same shape as live data: only whether a literal value exists, never the value.
+    return {"name": name, "has_value": bool(value), "secret_ref": ref, "container": container}
 
 
 def _id(kind, name):

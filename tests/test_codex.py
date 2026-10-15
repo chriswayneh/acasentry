@@ -112,7 +112,7 @@ def test_init_container_literal_secret_found():
     app = NS(name="a", id=rid("rg", "a"), managed_environment_id=None, identity=None, configuration=None,
              template=NS(containers=[NS(name="main", env=[])], init_containers=[NS(name="migrate", env=[e])]))
     rows = checks.secrets_rows([azure_live._normalize(app)])
-    assert rows == [["a", "env", "migrate", "SMTP_PASSWORD", "PLAINTEXT_ENV"]]
+    assert rows == [["a", "env", "migrate", "SMTP_PASSWORD", "********", "PLAINTEXT_ENV"]]
 
 
 # 7. resource ID casing / malformed
