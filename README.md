@@ -41,9 +41,9 @@ acasentry exposure --subscription <subscription-guid>
 - Every list call is read to the last page.
 - Throttling (429) and transient errors (408, 5xx, connection errors) are retried up to 5 attempts with exponential backoff capped at 30 seconds per wait; `Retry-After` is honored within that cap. The Azure SDK pipeline retry is turned off so the two do not stack.
 - With `--apply`, the plan is printed first, then each resource is changed and reported as `OK` or `FAILED`. If any fail, a PARTIAL summary is printed and the exit code is 1.
-- CSV cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` so spreadsheets do not run them as formulas.
+- CSV cells starting with `=`, `+`, `-`, `@`, tab or CR are prefixed with `'` so spreadsheets do not run them as formulas (the `-` placeholder cell is left as is).
 - `lockdown --allow-ip` keeps existing Allow rules and appends new CIDRs (duplicates skipped). Apps with Deny rules are refused, since Azure does not allow mixing Allow and Deny.
-- `--allow-ip` must be a valid CIDR; `0.0.0.0/0` and `::/0` are refused.
+- `--allow-ip` must be a valid CIDR; `0.0.0.0/0` and `::/0` are refused, and very broad ranges (IPv4 /1 to /8, IPv6 /1 to /32) print a warning.
 
 ## Commands
 
@@ -108,6 +108,8 @@ orders-api  rg-demo         external  True     False
 pip install -e ".[dev]"
 pytest
 ```
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 

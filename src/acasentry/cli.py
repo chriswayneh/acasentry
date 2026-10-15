@@ -3,7 +3,7 @@ import argparse
 import ipaddress
 import sys
 
-from . import checks, demo
+from . import __version__, checks, demo
 from .output import table, write_csv
 from .resilience import AcasentryError, translate, validate_subscription
 
@@ -119,10 +119,11 @@ def build_parser():
     common.add_argument("--csv", metavar="FILE", help="also write results to a CSV file")
     common.add_argument("--subscription", help="Azure subscription ID (live mode)")
     p = argparse.ArgumentParser(prog="acasentry", description="Azure Container Apps access and identity governance")
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sp = p.add_subparsers(dest="command", required=True)
     sp.add_parser("rbac", parents=[common], help="role assignments per app/environment")
     sp.add_parser("exposure", parents=[common], help="externally exposed apps")
-    sp.add_parser("secrets", parents=[common], help="plain-text secrets and env vars")
+    sp.add_parser("secrets", parents=[common], help="secrets not backed by Key Vault and literal secret-looking env vars")
     i = sp.add_parser("identity", parents=[common], help="enable system-assigned managed identity")
     i.add_argument("--apply", action="store_true")
     i.add_argument("--resource-group", help="only consider apps in this resource group")
@@ -143,7 +144,16 @@ def _cidr(value):
         raise argparse.ArgumentTypeError(f"invalid CIDR: {value}")
     if net.prefixlen == 0:
         raise argparse.ArgumentTypeError(f"{value} allows the whole internet; refusing")
+    if net.prefixlen <= broad_prefix_limit(net):
+        print(f"warning: --allow-ip {net} is very broad ({net.num_addresses:,} addresses); "
+              "double-check this is intended.", file=sys.stderr)
     return str(net)
+
+
+def broad_prefix_limit(net):
+    """Prefixes at or below this are warned as very broad: /8 for IPv4, /32 for IPv6
+    (a /32 is a whole ISP-sized allocation)."""
+    return 8 if net.version == 4 else 32
 
 
 def main(argv=None):

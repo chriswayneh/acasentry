@@ -16,8 +16,11 @@ FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 def csv_safe(value):
     """Neutralize spreadsheet formula injection (OWASP CSV injection guidance):
-    cells starting with = + - @ tab or CR get a leading single quote."""
+    cells starting with = + - @ tab or CR get a leading single quote.
+    The lone '-' placeholder is left as is."""
     text = str(value)
+    if text == "-":  # placeholder cell used in tables, not a formula
+        return text
     return "'" + text if text.startswith(FORMULA_PREFIXES) else text
 
 

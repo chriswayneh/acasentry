@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "acasentry"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Azure Container Apps access and identity governance CLI"
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,6 +26,9 @@ dev = ["pytest>=7", "pytest-cov", "ruff", "bandit"]
 
 [project.scripts]
 acasentry = "acasentry.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "acasentry.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
