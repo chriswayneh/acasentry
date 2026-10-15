@@ -6,10 +6,10 @@ import sys
 
 from . import __version__, checks, demo
 from .output import table, write_csv
-from .resilience import AcasentryError, translate, validate_subscription
+from .resilience import AcasentryError, first_line, translate, validate_subscription
 
 HEADERS = {
-    "rbac": ["SCOPE", "PRINCIPAL", "TYPE", "ROLE", "FLAGS"],
+    "rbac": ["SCOPE", "PRINCIPAL", "TYPE", "ROLE", "FLAGS", "SCOPE_ID", "PRINCIPAL_ID"],
     "exposure": ["APP", "REACHABILITY", "IP_RULES", "AUTH", "FLAGS"],
     "secrets": ["APP", "KIND", "CONTAINER", "NAME", "VALUE", "FLAG"],
     "identity": ["APP", "RESOURCE_GROUP", "CURRENT", "PLANNED"],
@@ -121,8 +121,11 @@ def _plan_and_apply(args, rows, targets, action):
             failed += 1
             err = translate(exc, args.subscription)
             print(
-                f"FAILED  {app['id']}: {err or type(exc).__name__ + ': ' + str(exc).splitlines()[0][:200]}"
+                f"FAILED  {app['id']}: {err or type(exc).__name__ + ': ' + first_line(exc)}"
             )
+    if failed and not done:
+        print(f"\nFAILED: nothing applied, {failed} change(s) failed.", file=sys.stderr)
+        return 2
     if failed:
         print(
             f"\nPARTIAL: {done} of {len(targets)} change(s) applied, {failed} failed.",

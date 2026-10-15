@@ -1,12 +1,22 @@
 # Changelog
 
-## 0.2.2 (unreleased)
+## 0.2.2 (2026-10-15)
 
 ### Fixed
 - Every Azure SDK or HTTP error and every connection error that reaches the CLI now prints a one-line `error:` message with a hint and exits with code `2`, as documented, instead of a traceback with exit code `1`. New hints cover 400 (check arguments and that the Microsoft.App provider is registered), 404 (check the app name, `--resource-group` and `--subscription`), 409 (another operation in progress), any other HTTP status, other Azure SDK errors, and connection failures or timeouts (check network, proxy and DNS). Only the first line of the Azure message is shown. Errors that are not from Azure or the network (programming bugs) still raise normally.
 - If the `--csv` file cannot be written (missing folder, permission denied and other OS errors), acasentry prints `error: cannot write CSV to <path>: <reason>` and exits with code `2` instead of a traceback. The CSV is written before any `--apply` change, so a CSV failure means nothing was applied.
 
+- `identity --apply` and `lockdown --apply` no longer send the whole app back to Azure. They send narrow JSON merge-patch updates (only `identity`, or only `ingress.external` / `ingress.ipSecurityRestrictions`) built from a fresh read just before the update, so concurrent changes to other settings are not overwritten. The Container Apps API has no ETag / If-Match support, so a concurrent edit of the same IP rule list can still race; a 412 response, if Azure ever returns one, prints a clean error.
+- A failure while polling an update no longer resubmits the change; polling resumes from the continuation token.
+- `identity --apply` decides the new identity type from a fresh read of the app, not from the earlier listing, and does nothing if a system-assigned identity was added in the meantime.
+- `lockdown --allow-ip` on an app with Deny IP rules is now refused when the plan is built (exit `2`, nothing applied). Previously a CIDR already present as a Deny rule produced "Nothing to change" and exit `0`.
+- An apply error with an empty message no longer crashes the per-resource summary.
+- New IP rule names (`acasentry-allow-N`) never collide with existing rule names.
+- Transient error detection uses exception types (connection errors and their subclasses, `URLError`), so Graph network errors are retried.
+
 ### Changed
+- `--apply` exit codes: `1` now means some changes applied and some failed; if every change failed (nothing applied) the exit code is `2`.
+- `rbac` table and CSV gain `SCOPE_ID` and `PRINCIPAL_ID` columns at the end, so rows stay distinct when scope or principal names repeat.
 - SECURITY.md: the repository is public, so vulnerabilities are reported through the Security tab's **Report a vulnerability** (GitHub private vulnerability reporting).
 
 ## 0.2.1 (2026-10-15)

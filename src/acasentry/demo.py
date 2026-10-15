@@ -77,7 +77,7 @@ APPS = [
     },
 ]
 
-ROLE_ASSIGNMENTS = [
+_RA = [
     {
         "scope_name": "cae-prod",
         "principal": "alice@contoso.com",
@@ -114,4 +114,20 @@ ROLE_ASSIGNMENTS = [
         "type": "User",
         "role": "ContainerApp Reader",
     },
+]
+
+
+def _scope_id(name):
+    kind = "managedEnvironments" if name.startswith("cae-") else "containerApps"
+    return _id(kind, name)
+
+
+# Demo principal IDs are obviously fake (all zeros plus a counter).
+ROLE_ASSIGNMENTS = [
+    dict(
+        ra,
+        scope_id=_scope_id(ra["scope_name"]),
+        principal_id=f"00000000-0000-0000-0000-{i:012d}",
+    )
+    for i, ra in enumerate(_RA, start=1)
 ]

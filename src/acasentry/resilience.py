@@ -63,13 +63,7 @@ def _get_header(headers, key):
 def is_transient(exc):
     if status_of(exc) in RETRYABLE_STATUS:
         return True
-    name = type(exc).__name__
-    return name in {
-        "ServiceRequestError",
-        "ServiceResponseError",
-        "ConnectionError",
-        "TimeoutError",
-    }
+    return is_connection_error(exc)
 
 
 def call_with_retry(
@@ -165,6 +159,12 @@ def translate(exc, subscription=None):
             "proxy settings (HTTPS_PROXY / NO_PROXY) and DNS, then retry. "
             f"Details: {_first_line(exc)}"
         )
+    if status == 412:
+        return AcasentryError(
+            "The app changed while acasentry was updating it (412 precondition failed). "
+            "This request changed nothing; re-run to plan against the current state. "
+            f"Details: {_first_line(exc)}"
+        )
     if status == 404:
         return AcasentryError(
             "Azure resource not found (404). Check the app name, --resource-group and "
@@ -210,6 +210,11 @@ def is_connection_error(exc):
     if isinstance(exc, (ConnectionError, TimeoutError)):
         return True
     return any(c.__name__ in CONNECTION_ERROR_NAMES for c in type(exc).__mro__)
+
+
+def first_line(exc):
+    """First line of an exception message, max 300 chars; the class name if empty."""
+    return _first_line(exc)
 
 
 def _first_line(exc):
