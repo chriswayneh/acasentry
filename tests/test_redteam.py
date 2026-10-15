@@ -132,3 +132,12 @@ def test_secrets_output_masks_values(monkeypatch, capsys, tmp_path):
 
 def test_demo_data_holds_no_values():
     assert "hunter2" not in repr(demo.APPS) and "abc123" not in repr(demo.APPS)
+
+
+def test_persistent_graph_401_says_sign_in_again(capsys):
+    def post(body):
+        raise urllib.error.HTTPError(azure_live.GRAPH_URL, 401, "Unauthorized", {}, None)
+    assert azure_live.resolve_principals({"x"}, graph=post) == {}
+    err = capsys.readouterr().err
+    assert "rejected the sign-in token" in err and "az login" in err
+    assert "Directory.Read.All" not in err

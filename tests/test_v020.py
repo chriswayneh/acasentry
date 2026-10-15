@@ -8,15 +8,15 @@ from acasentry import cli
 from acasentry.output import csv_safe
 
 
-def test_version_is_020_single_source():
-    assert acasentry.__version__ == "0.2.0"
+def test_version_is_021_single_source():
+    assert acasentry.__version__ == "0.2.1"
     assert importlib.metadata.version("acasentry") == acasentry.__version__
 
 
 def test_version_flag(capsys):
     with pytest.raises(SystemExit):
         cli.main(["--version"])
-    assert "0.2.0" in capsys.readouterr().out
+    assert "0.2.1" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("cidr", ["10.0.0.0/8", "128.0.0.0/1", "2001:db8::/32", "8000::/1"])

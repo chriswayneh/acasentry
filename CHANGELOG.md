@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-10-15)
+
+### Changed
+- The `secrets` table and CSV gain a `VALUE` column, placed before `FLAG` (columns: APP, KIND, CONTAINER, NAME, VALUE, FLAG).
 
 ### Security
-- Env var values are never kept or printed. Live data records only whether a literal value is set, and the `secrets` output has a new `VALUE` column that always shows the fixed mask `********` for `PLAINTEXT_ENV` rows (and `-` for `INLINE_SECRET` rows), in both the table and CSV. There is deliberately no opt-in flag to reveal values: a governance report is often pasted into tickets, CI logs and spreadsheets, and the value is not needed to fix the finding. Read it in the Azure portal if you must.
-- The Microsoft Graph token used by `rbac` is refreshed when it is expired or within 5 minutes of expiring, and once more if Graph returns 401.
+- Env var values are never printed. Raw env var values are discarded when Azure data is normalized and only a has-value flag is kept; the Azure SDK response objects briefly hold them in memory while the app list is fetched and normalized. The `VALUE` column always shows the fixed mask `********` for `PLAINTEXT_ENV` rows (and `-` for `INLINE_SECRET` rows), in both the table and CSV. There is deliberately no opt-in flag to reveal values: a governance report is often pasted into tickets, CI logs and spreadsheets, and the value is not needed to fix the finding.
+- The Microsoft Graph token used by `rbac` is refreshed when it is expired or within 5 minutes of expiring. acasentry also calls Graph once more on a 401; azure-identity cannot force a refresh, so this usually reuses the cached token. A CAE claims challenge is not handled yet. Proper CAE handling is planned.
+- A persistent 401 from Graph now prints a warning that the sign-in token was rejected and to run `az login` again, instead of the permission-grant advice.
 
 ### Added
 - SECURITY.md with the supported versions and how to report a vulnerability privately.

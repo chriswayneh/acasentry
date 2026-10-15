@@ -11,7 +11,7 @@ Fixes are released on the latest 0.2.x version only.
 
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through GitHub Security Advisories: open the repository's **Security** tab and choose **Report a vulnerability**. Do not open a public issue, pull request or discussion for a suspected vulnerability.
+While this repository is private, report vulnerabilities by messaging @chriswayneh on GitHub directly. Do not open an issue, pull request or discussion for a suspected vulnerability. Private reporting through the repository's **Security** tab (GitHub Security Advisories) will be turned on once the repository is public, and will then be the preferred channel.
 
 Include what you can of:
 - the affected version (`acasentry --version`) and command,
@@ -22,10 +22,7 @@ Never include real secrets, tokens, tenant IDs or subscription IDs in a report.
 
 ## What to expect
 
-- Acknowledgement within 3 business days.
-- An initial assessment (confirmed or not, and severity) within 10 business days.
-- For confirmed issues, a fix or mitigation plan, with a target of 30 days for high severity issues, and progress updates through the advisory at least every 14 days.
-- Credit in the advisory and CHANGELOG if you want it, once a fix is released.
+acasentry is maintained by one person, so responses are best effort. The aim is to acknowledge a report within a week, then keep you updated on the assessment and any fix. Credit in the CHANGELOG is offered once a fix is released, if you want it.
 
 ## Scope
 

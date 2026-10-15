@@ -1,5 +1,5 @@
 """Live Azure access. Azure SDKs are imported lazily."""
-from .resilience import AcasentryError, call_with_retry, list_all
+from .resilience import AcasentryError, call_with_retry, list_all, status_of
 
 
 def _import_error(exc):
@@ -157,7 +157,12 @@ TOKEN_SKEW_SECONDS = 300
 
 class GraphSession:
     """Calls Microsoft Graph with a cached token that is refreshed when it is
-    expired or within TOKEN_SKEW_SECONDS of expiring, and once more on a 401."""
+    expired or within TOKEN_SKEW_SECONDS of expiring.
+
+    It also calls Graph once more on a 401; azure-identity cannot force a refresh,
+    so this usually reuses the cached token. A CAE claims challenge is not handled
+    yet. Proper CAE (Continuous Access Evaluation) handling is planned.
+    """
 
     def __init__(self, cred, clock=None, opener=None, skew=TOKEN_SKEW_SECONDS):
         import time
@@ -222,6 +227,11 @@ def resolve_principals(ids, graph=None):
     except AcasentryError:
         raise
     except (OSError, ValueError, KeyError, ClientAuthenticationError, HttpResponseError) as exc:
+        if getattr(exc, "code", None) == 401 or status_of(exc) == 401:
+            print("warning: Microsoft Graph rejected the sign-in token (401). Run `az login` again, "
+                  "then re-run. Showing object IDs for now; guest detection may be incomplete.",
+                  file=sys.stderr)
+            return {}
         print("warning: could not resolve principal names via Microsoft Graph "
               f"({type(exc).__name__}); showing object IDs, guest detection may be incomplete. "
               "Grant Directory.Read.All or User.Read.All to fix.", file=sys.stderr)
