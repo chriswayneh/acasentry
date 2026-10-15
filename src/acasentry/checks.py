@@ -64,6 +64,7 @@ def identity_rows(apps):
 def lockdown_plan(app, allow_ips):
     ing = app.get("ingress") or {}
     if allow_ips:
-        return [[app["name"], "ip_rules", ",".join(ing.get("ip_rules") or []) or "(none)",
-                 ",".join(allow_ips)]]
+        current = list(ing.get("ip_rules") or [])
+        planned = current + [ip for ip in dict.fromkeys(allow_ips) if ip not in current]
+        return [[app["name"], "ip_rules", ",".join(current) or "(none)", ",".join(planned)]]
     return [[app["name"], "external", str(bool(ing.get("external"))), "False"]]

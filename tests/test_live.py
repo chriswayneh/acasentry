@@ -185,3 +185,27 @@ def test_cli_rejects_bad_or_open_cidr():
         cli.main(["lockdown", "orders-api", "--demo", "--allow-ip", "nope"])
     with pytest.raises(SystemExit):
         cli.main(["lockdown", "orders-api", "--demo", "--allow-ip", "0.0.0.0/0"])
+
+
+# ---- review fixes ----
+
+def test_merge_ip_rules_keeps_existing_and_dedupes():
+    Rule = lambda **k: NS(**k)
+    existing = [NS(name="corp", ip_address_range="203.0.113.0/24", action="Allow")]
+    out = azure_live.merge_ip_rules(existing, ["203.0.113.0/24", "10.0.0.0/8", "10.0.0.0/8"], Rule)
+    assert [r.ip_address_range for r in out] == ["203.0.113.0/24", "10.0.0.0/8"]
+
+
+def test_merge_ip_rules_refuses_with_deny_rules():
+    with pytest.raises(AcasentryError):
+        azure_live.merge_ip_rules([NS(name="x", ip_address_range="1.2.3.4/32", action="Deny")],
+                                  ["10.0.0.0/8"], lambda **k: NS(**k))
+
+
+def test_lockdown_plan_preserves_existing_rules(capsys):
+    cli.main(["lockdown", "web-frontend", "--demo", "--allow-ip", "10.0.0.0/8"])
+    assert "203.0.113.0/24,10.0.0.0/8" in capsys.readouterr().out
+
+
+def test_sdk_retry_disabled():
+    assert azure_live.SDK_KWARGS == {"retry_total": 0}

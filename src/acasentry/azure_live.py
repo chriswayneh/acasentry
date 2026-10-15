@@ -15,12 +15,17 @@ def _cred():
     return DefaultAzureCredential()
 
 
+# acasentry's own call_with_retry owns throttling/backoff, so the SDK pipeline
+# retry is disabled to avoid stacking two retry loops (up to 10 x 5 attempts).
+SDK_KWARGS = {"retry_total": 0}
+
+
 def _aca(sub):
     try:
         from azure.mgmt.appcontainers import ContainerAppsAPIClient
     except ImportError as exc:
         raise _import_error(exc)
-    return ContainerAppsAPIClient(_cred(), sub)
+    return ContainerAppsAPIClient(_cred(), sub, **SDK_KWARGS)
 
 
 def _rg(resource_id):
@@ -69,7 +74,7 @@ def load_role_assignments(sub, client=None, auth=None):
             from azure.mgmt.authorization import AuthorizationManagementClient
         except ImportError as exc:
             raise _import_error(exc)
-        auth = AuthorizationManagementClient(_cred(), sub)
+        auth = AuthorizationManagementClient(_cred(), sub, **SDK_KWARGS)
     client = client or _aca(sub)
     role_names = {}
     scopes = [(e.name, e.id) for e in list_all(client.managed_environments.list_by_subscription)]
@@ -107,9 +112,24 @@ def apply_lockdown(sub, app, allow_ips, client=None):
     if not cur.configuration or not cur.configuration.ingress:
         raise AcasentryError(f"App '{app['name']}' has no ingress configured; nothing to lock down.")
     if allow_ips:
-        cur.configuration.ingress.ip_security_restrictions = [
-            IpSecurityRestrictionRule(name=f"acasentry-allow-{i}", ip_address_range=ip, action="Allow")
-            for i, ip in enumerate(allow_ips)]
+        ing = cur.configuration.ingress
+        ing.ip_security_restrictions = merge_ip_rules(ing.ip_security_restrictions, allow_ips,
+                                                      IpSecurityRestrictionRule)
     else:
         cur.configuration.ingress.external = False
     _update(client, app, cur)
+
+
+def merge_ip_rules(existing, allow_ips, rule_cls):
+    """Keep existing rules and append Allow rules for CIDRs not already present."""
+    existing = list(existing or [])
+    if any((getattr(r, "action", "") or "").lower() == "deny" for r in existing):
+        raise AcasentryError(
+            "This app has Deny IP rules; Azure does not allow mixing Allow and Deny rules. "
+            "Review its ingress rules manually.")
+    have = {r.ip_address_range for r in existing}
+    for ip in allow_ips:
+        if ip not in have:
+            existing.append(rule_cls(name=f"acasentry-allow-{len(existing)}", ip_address_range=ip, action="Allow"))
+            have.add(ip)
+    return existing
