@@ -12,7 +12,7 @@ from azure.core.exceptions import (
 from acasentry import azure_live, cli
 
 SUB = "11111111-2222-3333-4444-555555555555"
-TOKENISH = "Bearer eyJhbGciOiJSUzI1NiJ9.secretpayload"
+TOKENISH = "Bearer eyJhbGciOiJSUzI1NiJ9.secretpayload"  # gitleaks:allow (fake token used to prove error bodies are not printed)
 
 
 def _http(status, cls=HttpResponseError, msg="(SomeCode) Something failed"):
