@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 (unreleased)
+## 0.2.2 (2026-10-15)
 
 ### Fixed
 - Every Azure SDK or HTTP error and every connection error that reaches the CLI now prints a one-line `error:` message with a hint and exits with code `2`, as documented, instead of a traceback with exit code `1`. New hints cover 400 (check arguments and that the Microsoft.App provider is registered), 404 (check the app name, `--resource-group` and `--subscription`), 409 (another operation in progress), any other HTTP status, other Azure SDK errors, and connection failures or timeouts (check network, proxy and DNS). Only the first line of the Azure message is shown. Errors that are not from Azure or the network (programming bugs) still raise normally.
