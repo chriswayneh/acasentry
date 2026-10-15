@@ -64,3 +64,32 @@ def test_non_azure_key_error_still_propagates(monkeypatch):
     monkeypatch.setattr(azure_live, "load_apps", bug)
     with pytest.raises(KeyError):
         cli.main(["secrets", "--subscription", SUB])
+
+
+def test_bare_azure_error_exits_2_one_line(monkeypatch, capsys):
+    from azure.core.exceptions import AzureError
+
+    def boom(*a, **k):
+        raise AzureError("x\ny")
+
+    monkeypatch.setattr(azure_live, "load_apps", boom)
+    assert cli.main(["secrets", "--subscription", SUB]) == 2
+    err = capsys.readouterr().err
+    assert "Azure SDK error (AzureError)" in err
+    assert err.startswith("error: ") and err.count("\n") == 1
+    assert "Traceback" not in err and err.rstrip().endswith("Details: x")
+
+
+def test_connection_error_with_status_gets_no_network_hint(monkeypatch, capsys):
+    exc = ServiceRequestError("Failed to establish a new connection")
+    exc.status_code = 418
+
+    def boom(*a, **k):
+        raise exc
+
+    monkeypatch.setattr(azure_live, "load_apps", boom)
+    assert cli.main(["secrets", "--subscription", SUB]) == 2
+    err = capsys.readouterr().err
+    assert "Could not reach Azure" not in err
+    assert "Azure returned HTTP 418" in err
+    assert err.count("\n") == 1
