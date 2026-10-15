@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.1 (2026-10-15)
+
+### Changed
+- The `secrets` table and CSV gain a `VALUE` column, placed before `FLAG` (columns: APP, KIND, CONTAINER, NAME, VALUE, FLAG). `FLAG` moves from column 5 to column 6 (in 0.2.0 the columns were APP, KIND, CONTAINER, NAME, FLAG), so scripts that read the secrets CSV by position must be updated.
+
+### Security
+- Env var values are never printed. Normalization drops each env var value and keeps only a has-value flag; the Azure SDK response objects briefly hold them in memory while the app list is fetched and normalized. The `VALUE` column always shows the fixed mask `********` for `PLAINTEXT_ENV` rows (and `-` for `INLINE_SECRET` rows), in both the table and CSV. There is deliberately no opt-in flag to reveal values: a governance report is often pasted into tickets, CI logs and spreadsheets, and the value is not needed to fix the finding.
+- The Microsoft Graph token used by `rbac` is refreshed when it is expired or within 5 minutes of expiring. acasentry also calls Graph once more on a 401; azure-identity cannot force a refresh, so this usually reuses the cached token. A CAE claims challenge is not handled yet. Proper CAE handling is planned.
+- A failure to get the Graph sign-in token (for example an expired `az login`) or a persistent 401 from Graph now prints a warning to run `az login` again, instead of the permission-grant advice.
+
+### Added
+- SECURITY.md with the supported versions and how to report a vulnerability privately.
+- Dependabot version updates for pip and GitHub Actions (weekly).
+
 ## 0.2.0 (2026-10-14)
 
 ### Breaking changes

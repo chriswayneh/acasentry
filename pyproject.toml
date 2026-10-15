@@ -22,7 +22,7 @@ classifiers = [
 dependencies = ["azure-identity>=1.15", "azure-mgmt-appcontainers>=3.0", "azure-mgmt-authorization>=4.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "pytest-cov", "ruff", "bandit"]
+dev = ["pytest>=7", "pytest-cov", "ruff", "bandit", "mypy"]
 
 [project.scripts]
 acasentry = "acasentry.cli:main"

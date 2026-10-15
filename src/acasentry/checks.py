@@ -15,7 +15,15 @@ def rbac_rows(assignments):
             flags.append(a["role"].upper())
         if is_guest(a["principal"]):
             flags.append("GUEST")
-        rows.append([a["scope_name"], a["principal"], a["type"], a["role"], ",".join(flags) or "ok"])
+        rows.append(
+            [
+                a["scope_name"],
+                a["principal"],
+                a["type"],
+                a["role"],
+                ",".join(flags) or "ok",
+            ]
+        )
     return rows
 
 
@@ -47,11 +55,28 @@ def exposure_rows(apps):
                 flags.append("AUTH_NOT_ENFORCED")
             if app.get("auth_excluded_paths"):
                 flags.append("AUTH_EXCLUDED_PATHS")
-        rows.append([app["name"], reach, str(len(ing.get("ip_rules") or [])), auth, ",".join(flags) or "ok"])
+        rows.append(
+            [
+                app["name"],
+                reach,
+                str(len(ing.get("ip_rules") or [])),
+                auth,
+                ",".join(flags) or "ok",
+            ]
+        )
     return rows
 
 
 SENSITIVE = ("PASSWORD", "SECRET", "TOKEN", "KEY", "CONN")
+
+
+VALUE_MASK = "********"
+
+
+def has_literal(env):
+    """True when the env var has a literal value. Values themselves are never shown:
+    the VALUE column is always the fixed mask VALUE_MASK."""
+    return bool(env.get("has_value", env.get("value")))
 
 
 def secrets_rows(apps):
@@ -63,10 +88,25 @@ def secrets_rows(apps):
     for app in apps:
         for s in app.get("secrets", []):
             if not s.get("key_vault_url"):
-                rows.append([app["name"], "secret", "-", s["name"], "INLINE_SECRET"])
+                rows.append(
+                    [app["name"], "secret", "-", s["name"], "-", "INLINE_SECRET"]
+                )
         for e in app.get("env", []):
-            if e.get("value") and not e.get("secret_ref") and any(k in e["name"].upper() for k in SENSITIVE):
-                rows.append([app["name"], "env", e.get("container") or "-", e["name"], "PLAINTEXT_ENV"])
+            if (
+                has_literal(e)
+                and not e.get("secret_ref")
+                and any(k in e["name"].upper() for k in SENSITIVE)
+            ):
+                rows.append(
+                    [
+                        app["name"],
+                        "env",
+                        e.get("container") or "-",
+                        e["name"],
+                        VALUE_MASK,
+                        "PLAINTEXT_ENV",
+                    ]
+                )
     return rows
 
 
@@ -95,8 +135,10 @@ def lockdown_plan(app, allow_ips):
     rg = app.get("resource_group", "-")
     if not has_ingress(app):
         if allow_ips:
-            raise ValueError(f"App '{app['name']}' has ingress disabled; IP restrictions cannot be added. "
-                             "It is not reachable over HTTP, so there is nothing to lock down.")
+            raise ValueError(
+                f"App '{app['name']}' has ingress disabled; IP restrictions cannot be added. "
+                "It is not reachable over HTTP, so there is nothing to lock down."
+            )
         return []
     ing = app["ingress"]
     if allow_ips:
@@ -104,7 +146,15 @@ def lockdown_plan(app, allow_ips):
         planned = current + [ip for ip in dict.fromkeys(allow_ips) if ip not in current]
         if planned == current:
             return []
-        return [[app["name"], rg, "ip_rules", ",".join(current) or "(none)", ",".join(planned)]]
+        return [
+            [
+                app["name"],
+                rg,
+                "ip_rules",
+                ",".join(current) or "(none)",
+                ",".join(planned),
+            ]
+        ]
     if not ing.get("external"):
         return []
     return [[app["name"], rg, "external", "True", "False"]]
@@ -115,13 +165,22 @@ def select_app(apps, ref, resource_group=None):
     if ref.lower().startswith("/subscriptions/"):
         matches = [a for a in apps if (a.get("id") or "").lower() == ref.lower()]
     else:
-        matches = [a for a in apps if a["name"] == ref and (
-            resource_group is None or (a.get("resource_group") or "").lower() == resource_group.lower())]
+        matches = [
+            a
+            for a in apps
+            if a["name"] == ref
+            and (
+                resource_group is None
+                or (a.get("resource_group") or "").lower() == resource_group.lower()
+            )
+        ]
     if not matches:
         where = f" in resource group '{resource_group}'" if resource_group else ""
         raise LookupError(f"App '{ref}' not found{where}.")
     if len(matches) > 1:
         ids = "\n  ".join(a.get("id") or a["name"] for a in matches)
-        raise LookupError(f"App name '{ref}' matches {len(matches)} apps. Re-run with --resource-group "
-                          f"or pass the full resource ID. Candidates:\n  {ids}")
+        raise LookupError(
+            f"App name '{ref}' matches {len(matches)} apps. Re-run with --resource-group "
+            f"or pass the full resource ID. Candidates:\n  {ids}"
+        )
     return matches[0]

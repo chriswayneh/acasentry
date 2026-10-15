@@ -31,7 +31,12 @@ def test_secrets(capsys):
 
 def test_identity_dry_run_and_apply(capsys):
     o = out(capsys, "identity", "--demo")
-    assert "orders-api" in o and "billing-worker" in o and "web-frontend" not in o and "DRY RUN" in o
+    assert (
+        "orders-api" in o
+        and "billing-worker" in o
+        and "web-frontend" not in o
+        and "DRY RUN" in o
+    )
     o = out(capsys, "identity", "--demo", "--apply")
     assert "Azure was not touched" in o
 
@@ -39,7 +44,15 @@ def test_identity_dry_run_and_apply(capsys):
 def test_lockdown(capsys):
     o = out(capsys, "lockdown", "orders-api", "--demo")
     assert "external" in o and "DRY RUN" in o
-    o = out(capsys, "lockdown", "orders-api", "--demo", "--allow-ip", "10.0.0.0/8", "--apply")
+    o = out(
+        capsys,
+        "lockdown",
+        "orders-api",
+        "--demo",
+        "--allow-ip",
+        "10.0.0.0/8",
+        "--apply",
+    )
     assert "10.0.0.0/8" in o and "Azure was not touched" in o
 
 
@@ -50,13 +63,19 @@ def test_lockdown_unknown_app(capsys):
 
 def test_demo_does_not_import_azure():
     import subprocess
-    code = ("import sys; from acasentry.cli import main; main(['identity','--demo','--apply']); "
-            "bad=[m for m in sys.modules if m.startswith('azure') or m=='acasentry.azure_live']; "
-            "assert not bad, bad")
+
+    code = (
+        "import sys; from acasentry.cli import main; main(['identity','--demo','--apply']); "
+        "bad=[m for m in sys.modules if m.startswith('azure') or m=='acasentry.azure_live']; "
+        "assert not bad, bad"
+    )
     subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)
 
 
-@pytest.mark.parametrize("cmd", [["rbac"], ["exposure"], ["secrets"], ["identity"], ["lockdown", "orders-api"]])
+@pytest.mark.parametrize(
+    "cmd",
+    [["rbac"], ["exposure"], ["secrets"], ["identity"], ["lockdown", "orders-api"]],
+)
 def test_csv(tmp_path, capsys, cmd):
     f = tmp_path / "out.csv"
     out(capsys, *cmd, "--demo", "--csv", str(f))

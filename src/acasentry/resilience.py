@@ -2,12 +2,15 @@
 
 Kept free of Azure imports so it can be unit tested with simple fakes.
 """
+
 import random
 import re
 import time
 
 RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
-GUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+GUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 class AcasentryError(Exception):
@@ -29,8 +32,11 @@ def error_code_of(exc):
 
 
 def retry_after_seconds(exc):
-    headers = (getattr(getattr(exc, "response", None), "headers", None)
-               or getattr(exc, "headers", None) or {})
+    headers = (
+        getattr(getattr(exc, "response", None), "headers", None)
+        or getattr(exc, "headers", None)
+        or {}
+    )
     for key in ("retry-after-ms", "x-ms-retry-after-ms"):
         val = _get_header(headers, key)
         if val is not None:
@@ -58,11 +64,23 @@ def is_transient(exc):
     if status_of(exc) in RETRYABLE_STATUS:
         return True
     name = type(exc).__name__
-    return name in {"ServiceRequestError", "ServiceResponseError", "ConnectionError", "TimeoutError"}
+    return name in {
+        "ServiceRequestError",
+        "ServiceResponseError",
+        "ConnectionError",
+        "TimeoutError",
+    }
 
 
-def call_with_retry(fn, *, max_attempts=5, base_delay=1.0, max_delay=30.0,
-                    sleep=time.sleep, jitter=random.random):
+def call_with_retry(
+    fn,
+    *,
+    max_attempts=5,
+    base_delay=1.0,
+    max_delay=30.0,
+    sleep=time.sleep,
+    jitter=random.random,
+):
     """Call fn(); retry transient failures with bounded exponential backoff.
 
     Retry-After from the service is honored but capped at max_delay.
@@ -94,11 +112,13 @@ def validate_subscription(sub):
     if not sub:
         raise AcasentryError(
             "No subscription given. Pass --subscription <id> (see `az account list -o table`), "
-            "or use --demo to try the tool without Azure.")
+            "or use --demo to try the tool without Azure."
+        )
     if not GUID_RE.match(sub):
         raise AcasentryError(
             f"'{sub}' is not a valid subscription ID (expected a GUID). "
-            "Find yours with `az account list -o table`.")
+            "Find yours with `az account list -o table`."
+        )
     return sub
 
 
@@ -107,29 +127,38 @@ def translate(exc, subscription=None):
     name = type(exc).__name__
     status = status_of(exc)
     code = error_code_of(exc)
-    if name in {"CredentialUnavailableError", "ClientAuthenticationError"} and status not in (403,):
+    if name in {
+        "CredentialUnavailableError",
+        "ClientAuthenticationError",
+    } and status not in (403,):
         return AcasentryError(
             "Not signed in to Azure. Run `az login` (and `az account set --subscription <id>`), "
             "or set AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_CLIENT_SECRET for a service principal. "
-            f"Details: {_first_line(exc)}")
+            f"Details: {_first_line(exc)}"
+        )
     if code in {"SubscriptionNotFound", "InvalidSubscriptionId"} or (
-            status == 404 and "subscription" in str(exc).lower()):
+        status == 404 and "subscription" in str(exc).lower()
+    ):
         return AcasentryError(
             f"Subscription '{subscription}' was not found or is not visible to this identity. "
-            "Check the ID with `az account list -o table`.")
+            "Check the ID with `az account list -o table`."
+        )
     if status == 403 or code in {"AuthorizationFailed", "LinkedAuthorizationFailed"}:
         return AcasentryError(
             "Permission denied. The signed-in identity needs at least Reader on the subscription "
             "(and Contributor on the apps for --apply). "
-            f"Details: {_first_line(exc)}")
+            f"Details: {_first_line(exc)}"
+        )
     if status == 401:
         return AcasentryError(
             "Azure rejected the credentials (401). Run `az login` again or check the tenant. "
-            f"Details: {_first_line(exc)}")
+            f"Details: {_first_line(exc)}"
+        )
     if status in RETRYABLE_STATUS:
         return AcasentryError(
             f"Azure kept returning HTTP {status} after retries. Try again later. "
-            f"Details: {_first_line(exc)}")
+            f"Details: {_first_line(exc)}"
+        )
     return None
 
 
