@@ -109,7 +109,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [ROADMAP.md](ROADMAP.md) for what is planned next.
 
 ## License
 
