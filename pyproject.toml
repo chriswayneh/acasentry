@@ -4,18 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "acasentry"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Azure Container Apps access and identity governance CLI"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+]
 dependencies = ["azure-identity>=1.15", "azure-mgmt-appcontainers>=3.0", "azure-mgmt-authorization>=4.0"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "pytest-cov", "ruff", "bandit"]
 
 [project.scripts]
 acasentry = "acasentry.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "acasentry.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

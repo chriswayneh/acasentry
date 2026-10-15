@@ -43,14 +43,17 @@ def test_lockdown(capsys):
     assert "10.0.0.0/8" in o and "Azure was not touched" in o
 
 
-def test_lockdown_unknown_app():
-    with pytest.raises(SystemExit):
-        main(["lockdown", "nope", "--demo"])
+def test_lockdown_unknown_app(capsys):
+    assert main(["lockdown", "nope", "--demo"]) == 2
+    assert "not found" in capsys.readouterr().err
 
 
-def test_demo_does_not_import_azure(capsys):
-    out(capsys, "identity", "--demo", "--apply")
-    assert "acasentry.azure_live" not in sys.modules
+def test_demo_does_not_import_azure():
+    import subprocess
+    code = ("import sys; from acasentry.cli import main; main(['identity','--demo','--apply']); "
+            "bad=[m for m in sys.modules if m.startswith('azure') or m=='acasentry.azure_live']; "
+            "assert not bad, bad")
+    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True)
 
 
 @pytest.mark.parametrize("cmd", [["rbac"], ["exposure"], ["secrets"], ["identity"], ["lockdown", "orders-api"]])
@@ -61,6 +64,6 @@ def test_csv(tmp_path, capsys, cmd):
     assert len(rows) >= 2
 
 
-def test_live_requires_subscription():
-    with pytest.raises(SystemExit):
-        main(["secrets"])
+def test_live_requires_subscription(capsys):
+    assert main(["secrets"]) == 2
+    assert "--subscription" in capsys.readouterr().err
