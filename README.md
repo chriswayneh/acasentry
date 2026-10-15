@@ -36,7 +36,8 @@ acasentry exposure --subscription <subscription-guid>
 - The identity needs Reader on the subscription for the report commands and Contributor on the target apps for `--apply`.
 - Common failures print a one-line `error:` message with the fix (not signed in, invalid or unknown subscription ID, permission denied) and exit with code 2, without a traceback.
 - Every list call is read to the last page.
-- Throttling (429) and transient errors (408, 5xx, connection errors) are retried up to 5 attempts with exponential backoff capped at 30 seconds per wait; `Retry-After` is honored within that cap.
+- Throttling (429) and transient errors (408, 5xx, connection errors) are retried up to 5 attempts with exponential backoff capped at 30 seconds per wait; `Retry-After` is honored within that cap. The Azure SDK pipeline retry is turned off so the two do not stack.
+- `lockdown --allow-ip` keeps existing Allow rules and appends new CIDRs (duplicates skipped). Apps with Deny rules are refused, since Azure does not allow mixing Allow and Deny.
 - `--allow-ip` must be a valid CIDR; `0.0.0.0/0` and `::/0` are refused.
 
 ## Commands
