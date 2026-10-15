@@ -227,6 +227,11 @@ def resolve_principals(ids, graph=None):
     except AcasentryError:
         raise
     except (OSError, ValueError, KeyError, ClientAuthenticationError, HttpResponseError) as exc:
+        if isinstance(exc, ClientAuthenticationError):
+            print("warning: could not get a Microsoft Graph sign-in token (sign-in missing or expired). "
+                  "Run `az login` again, then re-run. Showing object IDs for now; guest detection "
+                  "may be incomplete.", file=sys.stderr)
+            return {}
         if getattr(exc, "code", None) == 401 or status_of(exc) == 401:
             print("warning: Microsoft Graph rejected the sign-in token (401). Run `az login` again, "
                   "then re-run. Showing object IDs for now; guest detection may be incomplete.",

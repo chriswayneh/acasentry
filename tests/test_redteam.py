@@ -141,3 +141,15 @@ def test_persistent_graph_401_says_sign_in_again(capsys):
     err = capsys.readouterr().err
     assert "rejected the sign-in token" in err and "az login" in err
     assert "Directory.Read.All" not in err
+
+
+def test_graph_token_auth_error_says_az_login(capsys):
+    from azure.core.exceptions import ClientAuthenticationError
+
+    class ExpiredCred:
+        def get_token(self, scope):
+            raise ClientAuthenticationError("AADSTS700082: The refresh token has expired")
+    s = azure_live.GraphSession(ExpiredCred(), opener=Opener())
+    assert azure_live.resolve_principals({"x"}, graph=s) == {}
+    err = capsys.readouterr().err
+    assert "az login" in err and "Directory.Read.All" not in err
