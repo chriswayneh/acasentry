@@ -18,6 +18,8 @@ def status_of(exc):
     code = getattr(exc, "status_code", None)
     if code is None:
         code = getattr(getattr(exc, "response", None), "status_code", None)
+    if code is None and isinstance(getattr(exc, "code", None), int):
+        code = exc.code  # urllib.error.HTTPError (Microsoft Graph calls)
     return code
 
 
@@ -27,7 +29,8 @@ def error_code_of(exc):
 
 
 def retry_after_seconds(exc):
-    headers = getattr(getattr(exc, "response", None), "headers", None) or {}
+    headers = (getattr(getattr(exc, "response", None), "headers", None)
+               or getattr(exc, "headers", None) or {})
     for key in ("retry-after-ms", "x-ms-retry-after-ms"):
         val = _get_header(headers, key)
         if val is not None:
