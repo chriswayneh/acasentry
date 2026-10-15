@@ -4,6 +4,8 @@ import sys
 
 from . import checks, demo
 from .output import table, write_csv
+from .resilience import AcasentryError, translate, validate_subscription
+import ipaddress
 
 HEADERS = {
     "rbac": ["SCOPE", "PRINCIPAL", "TYPE", "ROLE", "FLAGS"],
@@ -15,9 +17,7 @@ HEADERS = {
 
 
 def _sub(args):
-    if not args.subscription:
-        sys.exit("error: --subscription is required unless --demo is used")
-    return args.subscription
+    return validate_subscription(args.subscription)
 
 
 def _apps(args, check_auth=False):
@@ -49,7 +49,7 @@ def run(args):
         apps = _apps(args)
         match = [a for a in apps if a["name"] == args.app]
         if not match:
-            sys.exit(f"error: app '{args.app}' not found")
+            raise AcasentryError(f"App '{args.app}' not found.")
         rows = checks.lockdown_plan(match[0], args.allow_ip)
         note = _apply(args, rows, lambda a: _live().apply_lockdown(args.subscription, a, args.allow_ip), match)
     print(table(HEADERS[cmd], rows))
@@ -90,13 +90,39 @@ def build_parser():
     i.add_argument("--apply", action="store_true")
     l = sp.add_parser("lockdown", parents=[common], help="make ingress internal or add IP restrictions")
     l.add_argument("app")
-    l.add_argument("--allow-ip", action="append", metavar="CIDR", default=[])
+    l.add_argument("--allow-ip", action="append", metavar="CIDR", default=[], type=_cidr)
     l.add_argument("--apply", action="store_true")
     return p
 
 
+def _cidr(value):
+    try:
+        net = ipaddress.ip_network(value, strict=False)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid CIDR: {value}")
+    if net.prefixlen == 0:
+        raise argparse.ArgumentTypeError(f"{value} allows the whole internet; refusing")
+    return str(net)
+
+
 def main(argv=None):
-    return run(build_parser().parse_args(argv))
+    args = build_parser().parse_args(argv)
+    try:
+        if not args.demo:
+            validate_subscription(args.subscription)
+        return run(args)
+    except AcasentryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        print("error: interrupted", file=sys.stderr)
+        return 130
+    except Exception as exc:
+        err = translate(exc, args.subscription)
+        if err is None:
+            raise
+        print(f"error: {err}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
