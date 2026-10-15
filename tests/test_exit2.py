@@ -25,7 +25,10 @@ def _http(status, cls=HttpResponseError, msg="(SomeCode) Something failed"):
     "exc,needle",
     [
         (_http(400, msg="(InvalidParameter) bad value"), "400 Bad Request"),
-        (_http(404, ResourceNotFoundError, "(ResourceNotFound) app gone"), "--resource-group"),
+        (
+            _http(404, ResourceNotFoundError, "(ResourceNotFound) app gone"),
+            "--resource-group",
+        ),
         (_http(418, msg="(Teapot) odd"), "Azure returned HTTP 418"),
         (_http(409, msg="(Conflict) busy"), "conflict (409)"),
         (ServiceRequestError("Failed to establish a new connection"), "proxy"),
