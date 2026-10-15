@@ -25,6 +25,20 @@ acasentry lockdown orders-api --demo --allow-ip 203.0.113.0/24
 
 Every command accepts `--demo`, `--csv out.csv`, and `--subscription <id>` (required in live mode). `identity` and `lockdown` accept `--apply`; with `--demo`, `--apply` is simulated and never touches Azure.
 
+## Live mode
+
+```
+az login
+acasentry exposure --subscription <subscription-guid>
+```
+
+- Auth uses `DefaultAzureCredential`, so `az login`, service principal environment variables (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET`) and managed identity all work.
+- The identity needs Reader on the subscription for the report commands and Contributor on the target apps for `--apply`.
+- Common failures print a one-line `error:` message with the fix (not signed in, invalid or unknown subscription ID, permission denied) and exit with code 2, without a traceback.
+- Every list call is read to the last page.
+- Throttling (429) and transient errors (408, 5xx, connection errors) are retried up to 5 attempts with exponential backoff capped at 30 seconds per wait; `Retry-After` is honored within that cap.
+- `--allow-ip` must be a valid CIDR; `0.0.0.0/0` and `::/0` are refused.
+
 ## Commands
 
 | Command | What it does |
