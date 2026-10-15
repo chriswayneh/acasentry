@@ -172,3 +172,16 @@ def test_csv_malicious_role_name(tmp_path):
 def test_secret_flag_renamed():
     flags = {r[-1] for r in checks.secrets_rows(demo.APPS)}
     assert flags == {"INLINE_SECRET", "PLAINTEXT_ENV"}
+
+
+# review fix: interrupted apply reports progress
+def test_interrupted_apply_reports_progress(monkeypatch, capsys):
+    apps = [napp("a", "rg"), napp("b", "rg")]
+    monkeypatch.setattr(azure_live, "load_apps", lambda sub, check_auth=False: apps)
+
+    def enable(sub, app):
+        if app["name"] == "b":
+            raise KeyboardInterrupt
+    monkeypatch.setattr(azure_live, "enable_system_identity", enable)
+    assert cli.main(["identity", "--subscription", SUB, "--apply"]) == 130
+    assert "1 of 2 change(s) applied" in capsys.readouterr().err

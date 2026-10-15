@@ -89,11 +89,16 @@ def _plan_and_apply(args, rows, targets, action):
         _emit(args, rows, " DEMO MODE: --apply simulated, Azure was not touched.")
         return 0
     _emit(args, rows, " Applying...")
-    failed = 0
+    failed = done = 0
     for app in targets:
         try:
             action(app)
+            done += 1
             print(f"OK      {app['id']}")
+        except KeyboardInterrupt:
+            print(f"\nINTERRUPTED: {done} of {len(targets)} change(s) applied before stopping; "
+                  f"{app['id']} may be mid-update.", file=sys.stderr)
+            return 130
         except AcasentryError as exc:
             failed += 1
             print(f"FAILED  {app['id']}: {exc}")
@@ -101,7 +106,6 @@ def _plan_and_apply(args, rows, targets, action):
             failed += 1
             err = translate(exc, args.subscription)
             print(f"FAILED  {app['id']}: {err or type(exc).__name__ + ': ' + str(exc).splitlines()[0][:200]}")
-    done = len(targets) - failed
     if failed:
         print(f"\nPARTIAL: {done} of {len(targets)} change(s) applied, {failed} failed.", file=sys.stderr)
         return 1
