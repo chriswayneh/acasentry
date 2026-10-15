@@ -5,7 +5,7 @@ CLI-only access and identity review for Azure Container Apps: who holds which ro
 [![CI](https://github.com/chriswayneh/acasentry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chriswayneh/acasentry/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
-[![Release](https://img.shields.io/badge/release-v0.2.1-blue.svg)](https://github.com/chriswayneh/acasentry/releases/tag/v0.2.1)
+[![Release](https://img.shields.io/badge/release-v0.2.2-blue.svg)](https://github.com/chriswayneh/acasentry/releases/tag/v0.2.2)
 
 Two fix commands (`identity`, `lockdown`) print dry-run plans unless `--apply` is given.
 
