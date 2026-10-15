@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Security
+- Env var values are never kept or printed. Live data records only whether a literal value is set, and the `secrets` output has a new `VALUE` column that always shows the fixed mask `********` for `PLAINTEXT_ENV` rows (and `-` for `INLINE_SECRET` rows), in both the table and CSV. There is deliberately no opt-in flag to reveal values: a governance report is often pasted into tickets, CI logs and spreadsheets, and the value is not needed to fix the finding. Read it in the Azure portal if you must.
+- The Microsoft Graph token used by `rbac` is refreshed when it is expired or within 5 minutes of expiring, and once more if Graph returns 401.
+
+### Added
+- SECURITY.md with the supported versions and how to report a vulnerability privately.
+- Dependabot version updates for pip and GitHub Actions (weekly).
+
 ## 0.2.0 (2026-10-14)
 
 ### Breaking changes

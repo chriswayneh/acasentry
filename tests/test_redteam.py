@@ -73,7 +73,7 @@ def test_graph_token_refreshed_near_expiry():
 
 
 def test_graph_token_refreshed_after_expiry():
-    s, cred, clock, op = _session()
+    s, _cred, clock, op = _session()
     s({"ids": []})
     clock.now += 7200
     s({"ids": []})
@@ -81,13 +81,13 @@ def test_graph_token_refreshed_after_expiry():
 
 
 def test_graph_401_retries_once_with_fresh_token():
-    s, cred, clock, op = _session(fail=[401])
+    s, _cred, _clock, op = _session(fail=[401])
     assert s({"ids": []}) == {"value": []}
     assert op.auth == ["Bearer tok1", "Bearer tok2"]
 
 
 def test_graph_second_401_is_raised_not_looped():
-    s, cred, clock, op = _session(fail=[401, 401])
+    s, _cred, _clock, op = _session(fail=[401, 401])
     try:
         s({"ids": []})
         raise AssertionError("expected HTTPError")
@@ -97,7 +97,7 @@ def test_graph_second_401_is_raised_not_looped():
 
 
 def test_graph_403_not_retried_with_new_token():
-    s, cred, clock, op = _session(fail=[403])
+    s, cred, _clock, op = _session(fail=[403])
     try:
         s({"ids": []})
     except urllib.error.HTTPError:
