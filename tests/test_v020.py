@@ -124,3 +124,6 @@ def test_version_matches_changelog_and_roadmap():
     m = re.search(r"\*\*Latest release\*\* \| \[`v([\d.]+)`\]\(([^)]+)\)", roadmap)
     assert m and m.group(1) == v
     assert m.group(2).endswith(f"/releases/tag/v{v}")
+    security = (root / "SECURITY.md").read_text(encoding="utf-8")
+    assert f"| {v} | Yes |" in security
+    assert f"| < {v} | No |" in security
