@@ -4,10 +4,10 @@
 
 | Version | Supported |
 |---|---|
-| 0.2.x | Yes |
-| < 0.2 | No |
+| 0.2.3 | Yes |
+| < 0.2.3 | No |
 
-Fixes are released on the latest 0.2.x version only.
+Fixes are released on the latest version only. 0.2.3 fixes unescaped terminal output, CSV formula cells after leading whitespace or a newline, and Graph redirects that could forward the sign-in token, so upgrade from earlier versions.
 
 ## Reporting a vulnerability
 
