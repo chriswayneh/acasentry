@@ -231,3 +231,126 @@ def test_cli_graph_redirect_long_location_is_capped(monkeypatch, capsys):
     assert "A" * 150 in line
     assert "A" * 201 not in line
     assert line.split(";")[0].endswith("...")
+
+
+# QE mutants on 5b52bb8.
+def _apply_args():
+    import argparse
+
+    return argparse.Namespace(
+        demo=False,
+        csv=None,
+        command="identity",
+        apply=True,
+        yes=True,
+        subscription=None,
+    )
+
+
+ID = "/x/" + NASTY
+
+
+def test_apply_ok_line_escaped(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "_emit", lambda *a, **k: None)
+    assert cli._plan_and_apply(_apply_args(), [], [{"id": ID}], lambda app: None) == 0
+    out = capsys.readouterr().out
+    _clean(out)
+    assert "OK      /x/Eve\\x1b]8;;" in out and "\\u202egpj.exe" in out
+
+
+def test_apply_interrupted_line_escaped(monkeypatch, capsys):
+    def action(app):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli, "_emit", lambda *a, **k: None)
+    assert cli._plan_and_apply(_apply_args(), [], [{"id": ID}], action) == 130
+    err = capsys.readouterr().err
+    _clean(err)
+    assert "INTERRUPTED: 0 of 1" in err and "/x/Eve\\x1b]8;;" in err
+
+
+def test_apply_generic_failed_line_escaped(monkeypatch, capsys):
+    def action(app):
+        raise ValueError("bad " + NASTY)
+
+    monkeypatch.setattr(cli, "_emit", lambda *a, **k: None)
+    assert cli._plan_and_apply(_apply_args(), [], [{"id": ID}], action) == 2
+    out = capsys.readouterr().out
+    _clean(out)
+    assert "FAILED  /x/Eve\\x1b]8;;" in out
+    assert "ValueError: bad Eve\\x1b]8;;http://evil\\x07" in out
+
+
+def test_apply_acasentry_failed_text_escaped(monkeypatch, capsys):
+    def action(app):
+        raise AcasentryError("denied " + NASTY)
+
+    monkeypatch.setattr(cli, "_emit", lambda *a, **k: None)
+    cli._plan_and_apply(_apply_args(), [], [{"id": "plain"}], action)
+    out = capsys.readouterr().out
+    _clean(out)
+    assert "FAILED  plain: denied Eve\\x1b]8;;" in out
+
+
+def test_wrote_csv_path_escaped(tmp_path, capsys):
+    p = tmp_path / "out\x1b[2Kx.csv"
+    assert cli.main(["rbac", "--demo", "--csv", str(p)]) == 0
+    out = capsys.readouterr().out
+    _clean(out)
+    assert "Wrote " in out and "out\\x1b[2Kx.csv" in out
+    assert p.exists()
+
+
+@pytest.mark.parametrize(
+    "ch,expected",
+    [
+        ("\u2028", "\\u2028"),  # Zl
+        ("\u2029", "\\u2029"),  # Zp
+        ("\ud800", "\\ud800"),  # Cs lone surrogate
+        ("\ue000", "\\ue000"),  # Co private use
+        ("\u0378", "\\u0378"),  # Cn unassigned
+        ("\U000e0001", "\\U000e0001"),  # Cf language tag, 8-hex branch
+    ],
+)
+def test_escape_unsafe_categories(ch, expected):
+    from acasentry.output import escape
+
+    assert escape("a" + ch + "b") == "a" + expected + "b"
+
+
+@pytest.mark.parametrize("code", [403, 500])
+def test_graph_non_redirect_http_error_reraised(code):
+    import urllib.error
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            self.send_response(code)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{srv.server_port}/graph"
+        import urllib.request
+
+        req = urllib.request.Request(url, data=b"{}", method="POST")
+        with pytest.raises(urllib.error.HTTPError) as ei:
+            azure_live.graph_urlopen(req, timeout=5)
+        assert ei.value.code == code
+    finally:
+        srv.shutdown()
+
+
+@pytest.mark.parametrize(
+    "n,expected_tail",
+    [(200, "A" * 200 + ";"), (201, "A" * 200 + "...;")],
+)
+def test_redirect_error_cap_boundary(n, expected_tail):
+    msg = str(azure_live._redirect_error(302, "A" * n))
+    assert ("to " + expected_tail) in msg
+    if n == 200:
+        assert "..." not in msg
