@@ -110,7 +110,7 @@ def test_csv_safe_lstripped_and_newline(value, expected):
     assert csv_safe(value) == expected
 
 
-@pytest.mark.parametrize("code", [301, 302, 307, 308])
+@pytest.mark.parametrize("code", [300, 301, 302, 303, 305, 307, 308])
 def test_graph_refuses_redirects(monkeypatch, code):
     seen = []
 

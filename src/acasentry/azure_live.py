@@ -220,20 +220,34 @@ GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 TOKEN_SKEW_SECONDS = 300
 
 
+def _redirect_error(code):
+    return AcasentryError(
+        f"Microsoft Graph answered with an HTTP {code} redirect; refusing to follow it "
+        "so the sign-in token is not sent to another host."
+    )
+
+
 class _RefuseRedirect(urllib.request.HTTPRedirectHandler):
     """Never follow a redirect from Graph, so the Bearer token is not sent elsewhere."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise AcasentryError(
-            f"Microsoft Graph answered with an HTTP {code} redirect; refusing to follow it "
-            "so the sign-in token is not sent to another host."
-        )
+        raise _redirect_error(code)
 
 
 def graph_urlopen(req, timeout):
     """urlopen for Graph calls that treats any 3xx redirect as an error."""
-    # GRAPH_URL is a fixed https constant, so the bandit B310 scheme warning does not apply.
-    return urllib.request.build_opener(_RefuseRedirect()).open(req, timeout=timeout)  # nosec B310
+    import urllib.error
+
+    opener = urllib.request.build_opener(_RefuseRedirect())
+    try:
+        # GRAPH_URL is a fixed https constant, so the bandit B310 scheme warning does not apply.
+        return opener.open(req, timeout=timeout)  # nosec B310
+    except urllib.error.HTTPError as exc:
+        # 3xx codes the redirect handler does not cover (300, 304, 305, 308 on Python 3.10)
+        # arrive here; they are refused the same way.
+        if 300 <= exc.code < 400:
+            raise _redirect_error(exc.code) from None
+        raise
 
 
 class GraphSession:
