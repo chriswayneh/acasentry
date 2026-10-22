@@ -9,15 +9,15 @@ from acasentry import cli
 from acasentry.output import csv_safe
 
 
-def test_version_is_022_single_source():
-    assert acasentry.__version__ == "0.2.2"
+def test_version_is_single_source():
+    assert acasentry.__version__ == "0.2.3"
     assert importlib.metadata.version("acasentry") == acasentry.__version__
 
 
 def test_version_flag(capsys):
     with pytest.raises(SystemExit):
         cli.main(["--version"])
-    assert "0.2.2" in capsys.readouterr().out
+    assert "0.2.3" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
@@ -106,3 +106,21 @@ def test_no_plain_text_wording_left():
     for path in list((root / "src").rglob("*.py")) + [root / "README.md"]:
         text = path.read_text().lower()
         assert "plain-text" not in text and "plain text" not in text, path
+
+
+def test_version_matches_changelog_and_roadmap():
+    """__version__, the newest dated CHANGELOG heading and the ROADMAP latest release agree."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    v = acasentry.__version__
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    dated = re.findall(
+        r"^## (\d+\.\d+\.\d+) \(\d{4}-\d{2}-\d{2}\)$", changelog, re.MULTILINE
+    )
+    assert dated and dated[0] == v
+    roadmap = (root / "ROADMAP.md").read_text(encoding="utf-8")
+    m = re.search(r"\*\*Latest release\*\* \| \[`v([\d.]+)`\]\(([^)]+)\)", roadmap)
+    assert m and m.group(1) == v
+    assert m.group(2).endswith(f"/releases/tag/v{v}")

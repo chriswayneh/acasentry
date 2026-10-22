@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.3 (2026-10-22)
 
 ### Security
 - Text from Microsoft Graph and Azure (display names, app IDs, error messages) is escaped before it reaches the terminal. C0 and C1 controls (including CSI U+009B), DEL, bidi controls and other Unicode format characters are shown as visible escapes such as `\x1b` or `\u202e` in every table cell and every error line, so data cannot move the cursor, add hyperlinks, clear lines or reorder text. Backslashes are doubled so a literal `\x1b` cannot pass for an escaped one. CSV output keeps the raw text. The escape function is ported from bbwarden.
