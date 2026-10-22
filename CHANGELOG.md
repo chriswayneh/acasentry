@@ -3,9 +3,16 @@
 ## 0.2.3 (2026-10-22)
 
 ### Security
-- Text from Microsoft Graph and Azure (display names, app IDs, error messages) is escaped before it reaches the terminal. C0 and C1 controls (including CSI U+009B), DEL, bidi controls and other Unicode format characters are shown as visible escapes such as `\x1b` or `\u202e` in every table cell and every error line, so data cannot move the cursor, add hyperlinks, clear lines or reorder text. Backslashes are doubled so a literal `\x1b` cannot pass for an escaped one. CSV output keeps the raw text. The escape function is ported from bbwarden.
-- `csv_safe` also quotes cells whose text starts with a formula character after leading whitespace, and cells that start with a newline. The lone `-` placeholder is unchanged.
-- Microsoft Graph calls refuse every HTTP redirect, so the Bearer token is never sent to another URL. A redirect prints a one-line `error:` message naming the escaped redirect target (cut to its first 200 characters plus `...`) and exits with code `2`.
+- Text from Microsoft Graph and Azure (display names, app IDs, error messages) is escaped before it reaches the terminal. C0 and C1 controls (including CSI U+009B), DEL, bidi controls and other Unicode format characters are shown as visible escapes such as `\x1b` or `\u202e` in every table cell and every error line, so data cannot move the cursor, add hyperlinks, clear lines or reorder text. Backslashes are doubled so a literal `\x1b` cannot pass for an escaped one. CSV output keeps the raw text. The escape function is ported from bbwarden. (#13)
+- `csv_safe` also quotes cells whose text starts with a formula character after leading whitespace, and cells that start with a newline. The lone `-` placeholder is unchanged. (#13)
+- Microsoft Graph calls refuse every HTTP redirect, so the Bearer token is never sent to another URL. A redirect prints a one-line `error:` message naming the escaped redirect target (cut to its first 200 characters plus `...`) and exits with code `2`. (#13)
+- CI checkout steps set `persist-credentials: false`, so the GitHub token is not left in the local git config for later steps. (#12)
+
+### Changed
+- CI: `actions/setup-python` bumped from 5.6.0 to 7.0.0. (#7)
+
+### Docs
+- README uses the shared README theme. (#11)
 
 ## 0.2.2 (2026-10-15)
 
@@ -59,3 +66,8 @@
 
 ### Security
 - CSV export escapes formula injection: cells starting with `=`, `+`, `-`, `@`, tab or carriage return get a leading `'`. The `-` placeholder cell is left as is.
+
+[0.2.3]: https://github.com/chriswayneh/acasentry/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/chriswayneh/acasentry/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/chriswayneh/acasentry/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/chriswayneh/acasentry/releases/tag/v0.2.0

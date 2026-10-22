@@ -60,6 +60,10 @@ Plan for acasentry by phase. Each phase ships something you can run from the com
 
 v0.2.1: secret-safe normalization, az login error routing, full CI lint/type/coverage gate
 
+v0.2.2: every Azure, HTTP and connection error exits 2 with one line, narrow PATCH updates from a fresh read, Deny rules refused at plan time, exit 2 when nothing was applied
+
+v0.2.3: terminal output escaped, csv_safe hardened, Graph redirects refused so the token is never forwarded
+
 ## Phase 2: Report (v0.3.0)
 
 **Goal:** Feed acasentry results into pipelines and other tools, not just terminals.
