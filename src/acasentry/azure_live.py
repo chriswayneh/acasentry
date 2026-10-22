@@ -1,5 +1,7 @@
 """Live Azure access. Azure SDKs are imported lazily."""
 
+import urllib.request
+
 from .resilience import (
     AcasentryError,
     call_with_retry,
@@ -218,6 +220,22 @@ GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 TOKEN_SKEW_SECONDS = 300
 
 
+class _RefuseRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect from Graph, so the Bearer token is not sent elsewhere."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise AcasentryError(
+            f"Microsoft Graph answered with an HTTP {code} redirect; refusing to follow it "
+            "so the sign-in token is not sent to another host."
+        )
+
+
+def graph_urlopen(req, timeout):
+    """urlopen for Graph calls that treats any 3xx redirect as an error."""
+    # GRAPH_URL is a fixed https constant, so the bandit B310 scheme warning does not apply.
+    return urllib.request.build_opener(_RefuseRedirect()).open(req, timeout=timeout)  # nosec B310
+
+
 class GraphSession:
     """Calls Microsoft Graph with a cached token that is refreshed when it is
     expired or within TOKEN_SKEW_SECONDS of expiring.
@@ -229,11 +247,10 @@ class GraphSession:
 
     def __init__(self, cred, clock=None, opener=None, skew=TOKEN_SKEW_SECONDS):
         import time
-        import urllib.request
 
         self.cred, self.skew = cred, skew
         self.clock = clock or time.time
-        self.opener = opener or urllib.request.urlopen
+        self.opener = opener or graph_urlopen
         self._token = None
 
     def token(self, force=False):
