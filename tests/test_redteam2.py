@@ -148,3 +148,67 @@ def test_graph_refuses_redirects(monkeypatch, code):
         assert seen == []
     finally:
         srv.shutdown()
+
+
+def _redirect_server(code, seen):
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            if self.path == "/graph":
+                port = self.server.server_port
+                self.send_response(code)
+                # http.server writes headers as latin-1; ESC is allowed there.
+                self.send_header("Location", f"http://127.0.0.1:{port}/steal\x1b[2Kx")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            else:
+                seen.append(self.path)
+                self.send_response(200)
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+        do_GET = do_POST
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+@pytest.mark.parametrize("code", [301, 307, 308])
+def test_cli_rbac_graph_redirect_exits_2(monkeypatch, capsys, code):
+    """End to end through cli.main: a Graph redirect is refused, exits 2, one escaped line."""
+    import types
+
+    import azure.mgmt.authorization as authz
+    from test_qe import SUB, _ra_client
+
+    client, auth = _ra_client()
+    seen = []
+    srv = _redirect_server(code, seen)
+    try:
+        monkeypatch.setattr(
+            azure_live, "GRAPH_URL", f"http://127.0.0.1:{srv.server_port}/graph"
+        )
+        tok = types.SimpleNamespace(token="secret-token", expires_on=10**12)
+        monkeypatch.setattr(
+            azure_live, "_cred", lambda: types.SimpleNamespace(get_token=lambda s: tok)
+        )
+        monkeypatch.setattr(azure_live, "_aca", lambda sub: client)
+        monkeypatch.setattr(
+            authz, "AuthorizationManagementClient", lambda *a, **k: auth
+        )
+        rc = cli.main(["rbac", "--subscription", SUB])
+    finally:
+        srv.shutdown()
+    cap = capsys.readouterr()
+    assert rc == 2
+    lines = [l for l in cap.err.splitlines() if l.strip()]
+    assert len(lines) == 1 and lines[0].startswith("error: ")
+    assert f"HTTP {code} redirect" in lines[0]
+    assert "/steal\\x1b[2Kx" in lines[0]
+    _clean(cap.err)
+    assert "secret-token" not in cap.out + cap.err
+    assert seen == []
