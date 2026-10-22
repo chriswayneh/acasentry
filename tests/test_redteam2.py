@@ -150,7 +150,7 @@ def test_graph_refuses_redirects(monkeypatch, code):
         srv.shutdown()
 
 
-def _redirect_server(code, seen):
+def _redirect_server(code, seen, suffix="/steal\x1b[2Kx"):
     class H(http.server.BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -160,7 +160,7 @@ def _redirect_server(code, seen):
                 port = self.server.server_port
                 self.send_response(code)
                 # http.server writes headers as latin-1; ESC is allowed there.
-                self.send_header("Location", f"http://127.0.0.1:{port}/steal\x1b[2Kx")
+                self.send_header("Location", f"http://127.0.0.1:{port}{suffix}")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
             else:
@@ -180,27 +180,10 @@ def _redirect_server(code, seen):
 @pytest.mark.parametrize("code", [301, 307, 308])
 def test_cli_rbac_graph_redirect_exits_2(monkeypatch, capsys, code):
     """End to end through cli.main: a Graph redirect is refused, exits 2, one escaped line."""
-    import types
-
-    import azure.mgmt.authorization as authz
-    from test_qe import SUB, _ra_client
-
-    client, auth = _ra_client()
     seen = []
     srv = _redirect_server(code, seen)
     try:
-        monkeypatch.setattr(
-            azure_live, "GRAPH_URL", f"http://127.0.0.1:{srv.server_port}/graph"
-        )
-        tok = types.SimpleNamespace(token="secret-token", expires_on=10**12)
-        monkeypatch.setattr(
-            azure_live, "_cred", lambda: types.SimpleNamespace(get_token=lambda s: tok)
-        )
-        monkeypatch.setattr(azure_live, "_aca", lambda sub: client)
-        monkeypatch.setattr(
-            authz, "AuthorizationManagementClient", lambda *a, **k: auth
-        )
-        rc = cli.main(["rbac", "--subscription", SUB])
+        rc = _run_rbac_against(monkeypatch, srv)
     finally:
         srv.shutdown()
     cap = capsys.readouterr()
@@ -212,3 +195,39 @@ def test_cli_rbac_graph_redirect_exits_2(monkeypatch, capsys, code):
     _clean(cap.err)
     assert "secret-token" not in cap.out + cap.err
     assert seen == []
+
+
+def _run_rbac_against(monkeypatch, srv):
+    import types
+
+    import azure.mgmt.authorization as authz
+    from test_qe import SUB, _ra_client
+
+    client, auth = _ra_client()
+    monkeypatch.setattr(
+        azure_live, "GRAPH_URL", f"http://127.0.0.1:{srv.server_port}/graph"
+    )
+    tok = types.SimpleNamespace(token="secret-token", expires_on=10**12)
+    monkeypatch.setattr(
+        azure_live, "_cred", lambda: types.SimpleNamespace(get_token=lambda s: tok)
+    )
+    monkeypatch.setattr(azure_live, "_aca", lambda sub: client)
+    monkeypatch.setattr(authz, "AuthorizationManagementClient", lambda *a, **k: auth)
+    return cli.main(["rbac", "--subscription", SUB])
+
+
+def test_cli_graph_redirect_long_location_is_capped(monkeypatch, capsys):
+    seen = []
+    srv = _redirect_server(302, seen, "/" + "A" * 5000)
+    try:
+        rc = _run_rbac_against(monkeypatch, srv)
+    finally:
+        srv.shutdown()
+    err = capsys.readouterr().err
+    lines = [l for l in err.splitlines() if l.strip()]
+    assert rc == 2 and len(lines) == 1 and seen == []
+    line = lines[0]
+    assert len(line) < 400
+    assert "A" * 150 in line
+    assert "A" * 201 not in line
+    assert line.split(";")[0].endswith("...")

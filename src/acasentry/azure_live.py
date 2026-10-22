@@ -220,7 +220,12 @@ GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 TOKEN_SKEW_SECONDS = 300
 
 
+LOCATION_CAP = 200
+
+
 def _redirect_error(code, location=None):
+    if location and len(location) > LOCATION_CAP:
+        location = location[:LOCATION_CAP] + "..."
     where = f" to {location}" if location else ""
     return AcasentryError(
         f"Microsoft Graph answered with an HTTP {code} redirect{where}; refusing to follow "
