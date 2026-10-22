@@ -1,11 +1,10 @@
 # acasentry
 
-CLI-only access and identity review for Azure Container Apps: who holds which roles, which apps are reachable from the internet, which secrets are not in Key Vault, and which apps lack a managed identity.
-
 [![CI](https://github.com/chriswayneh/acasentry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chriswayneh/acasentry/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
-[![Release](https://img.shields.io/badge/release-v0.2.2-blue.svg)](https://github.com/chriswayneh/acasentry/releases/tag/v0.2.2)
+
+CLI-only access and identity review for Azure Container Apps: who holds which roles, which apps are reachable from the internet, which secrets are not in Key Vault, and which apps lack a managed identity.
 
 Two fix commands (`identity`, `lockdown`) print dry-run plans unless `--apply` is given.
 
@@ -19,6 +18,24 @@ acasentry exposure --demo
 ```
 
 Requires Python 3.10 or newer. `--demo` uses built-in mock data, so no Azure account is needed. Check the installed version with `acasentry --version`.
+
+### Development
+```
+pip install -e ".[dev]"
+pytest
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+## Features
+
+- **Role review:** `rbac` lists role assignments on each Container Apps environment and app and flags Owner, Contributor and guest users.
+- **Exposure check:** `exposure` finds apps with external ingress and flags missing IP rules and missing or unenforced auth.
+- **Secret hygiene:** `secrets` flags Container Apps secrets not backed by Key Vault and literal env values with secret-looking names. Values are never kept or shown.
+- **Managed identity fix:** `identity` enables system-assigned managed identity where it is missing.
+- **Ingress lockdown:** `lockdown` switches an app to internal ingress or adds IP allow rules.
+- **Dry run by default:** the two fix commands print a plan unless you pass `--apply`.
+- **Demo mode:** `--demo` uses built-in mock data, so no Azure account is needed.
 
 ## Usage
 
@@ -131,19 +148,35 @@ flowchart LR
     cli -->|"apply flag"| live
 ```
 
+## Built with
+
+**Languages** (GitHub language stats, checked 2026-10-21): Python 100%
+
+**AI tools:**
+
+- Grok Bot (confirmed by Chris, 2026-10-21)
+- Cursor cloud agents (confirmed by Chris, 2026-10-21)
+
+Commits made with AI help carry a `Co-authored-by` trailer from now on. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned phases and [CHANGELOG.md](CHANGELOG.md) for released versions.
 
 Planned phases through `v1.0.0` are in [ROADMAP.md](ROADMAP.md). Release history is in [CHANGELOG.md](CHANGELOG.md).
 
-## Development
+## Security
 
-```
-pip install -e ".[dev]"
-pytest
-```
+See [SECURITY.md](SECURITY.md) for supported versions and how to report a vulnerability privately.
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes and [SECURITY.md](SECURITY.md) to report a vulnerability.
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), including how to credit AI tools in commits.
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Acknowledgments
+
+README layout adapted from [Best-README-Template](https://github.com/othneildrew/Best-README-Template) by Othneil Drew.
