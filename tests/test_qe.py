@@ -129,7 +129,7 @@ def test_graph_post_builds_request():
     cred = NS(get_token=lambda scope: NS(token="t0k"))
     resp = mock.MagicMock()
     resp.__enter__.return_value.read.return_value = json.dumps({"value": []}).encode()
-    with mock.patch("urllib.request.urlopen", return_value=resp) as uo:
+    with mock.patch.object(azure_live, "graph_urlopen", return_value=resp) as uo:
         assert azure_live._graph_post(cred)({"ids": ["a"]}) == {"value": []}
     req = uo.call_args[0][0]
     assert (

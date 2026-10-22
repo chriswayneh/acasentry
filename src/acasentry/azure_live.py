@@ -1,5 +1,7 @@
 """Live Azure access. Azure SDKs are imported lazily."""
 
+import urllib.request
+
 from .resilience import (
     AcasentryError,
     call_with_retry,
@@ -218,6 +220,42 @@ GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 TOKEN_SKEW_SECONDS = 300
 
 
+LOCATION_CAP = 200
+
+
+def _redirect_error(code, location=None):
+    if location and len(location) > LOCATION_CAP:
+        location = location[:LOCATION_CAP] + "..."
+    where = f" to {location}" if location else ""
+    return AcasentryError(
+        f"Microsoft Graph answered with an HTTP {code} redirect{where}; refusing to follow "
+        "it so the sign-in token is not sent to another host."
+    )
+
+
+class _RefuseRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect from Graph, so the Bearer token is not sent elsewhere."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise _redirect_error(code, headers.get("Location") or newurl)
+
+
+def graph_urlopen(req, timeout):
+    """urlopen for Graph calls that treats any 3xx redirect as an error."""
+    import urllib.error
+
+    opener = urllib.request.build_opener(_RefuseRedirect())
+    try:
+        # GRAPH_URL is a fixed https constant, so the bandit B310 scheme warning does not apply.
+        return opener.open(req, timeout=timeout)  # nosec B310
+    except urllib.error.HTTPError as exc:
+        # 3xx codes the redirect handler does not cover (300, 304, 305, 308 on Python 3.10)
+        # arrive here; they are refused the same way.
+        if 300 <= exc.code < 400:
+            raise _redirect_error(exc.code, exc.headers.get("Location")) from None
+        raise
+
+
 class GraphSession:
     """Calls Microsoft Graph with a cached token that is refreshed when it is
     expired or within TOKEN_SKEW_SECONDS of expiring.
@@ -229,11 +267,10 @@ class GraphSession:
 
     def __init__(self, cred, clock=None, opener=None, skew=TOKEN_SKEW_SECONDS):
         import time
-        import urllib.request
 
         self.cred, self.skew = cred, skew
         self.clock = clock or time.time
-        self.opener = opener or urllib.request.urlopen
+        self.opener = opener or graph_urlopen
         self._token = None
 
     def token(self, force=False):

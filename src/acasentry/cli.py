@@ -5,7 +5,7 @@ import ipaddress
 import sys
 
 from . import __version__, checks, demo
-from .output import table, write_csv
+from .output import escape, table, write_csv
 from .resilience import AcasentryError, first_line, translate, validate_subscription
 
 HEADERS = {
@@ -46,7 +46,7 @@ def _emit(args, rows, note=""):
         except OSError as exc:
             reason = exc.strerror or type(exc).__name__
             raise AcasentryError(f"cannot write CSV to {args.csv}: {reason}") from None
-        print(f"Wrote {args.csv}")
+        print(f"Wrote {escape(args.csv)}")
 
 
 def run(args):
@@ -106,22 +106,23 @@ def _plan_and_apply(args, rows, targets, action):
         try:
             action(app)
             done += 1
-            print(f"OK      {app['id']}")
+            print(f"OK      {escape(app['id'])}")
         except KeyboardInterrupt:
             print(
                 f"\nINTERRUPTED: {done} of {len(targets)} change(s) applied before stopping; "
-                f"{app['id']} may be mid-update.",
+                f"{escape(app['id'])} may be mid-update.",
                 file=sys.stderr,
             )
             return 130
         except AcasentryError as exc:
             failed += 1
-            print(f"FAILED  {app['id']}: {exc}")
+            print(f"FAILED  {escape(app['id'])}: {escape(exc)}")
         except Exception as exc:  # noqa: BLE001 - record per-resource outcome, never hide it
             failed += 1
             err = translate(exc, args.subscription)
             print(
-                f"FAILED  {app['id']}: {err or type(exc).__name__ + ': ' + first_line(exc)}"
+                f"FAILED  {escape(app['id'])}: "
+                f"{escape(err or type(exc).__name__ + ': ' + first_line(exc))}"
             )
     if failed and not done:
         print(f"\nFAILED: nothing applied, {failed} change(s) failed.", file=sys.stderr)
@@ -218,7 +219,7 @@ def main(argv=None):
             validate_subscription(args.subscription)
         return run(args)
     except AcasentryError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {escape(exc)}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
         print("error: interrupted", file=sys.stderr)
@@ -227,7 +228,7 @@ def main(argv=None):
         err = translate(exc, args.subscription)
         if err is None:
             raise
-        print(f"error: {err}", file=sys.stderr)
+        print(f"error: {escape(err)}", file=sys.stderr)
         return 2
 
 
