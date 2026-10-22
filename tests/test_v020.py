@@ -117,7 +117,7 @@ def test_version_matches_changelog_and_roadmap():
     v = acasentry.__version__
     changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     dated = re.findall(
-        r"^## (\d+\.\d+\.\d+) \(\d{4}-\d{2}-\d{2}\)$", changelog, re.MULTILINE
+        r"^## \[(\d+\.\d+\.\d+)\] \(\d{4}-\d{2}-\d{2}\)$", changelog, re.MULTILINE
     )
     assert dated and dated[0] == v
     roadmap = (root / "ROADMAP.md").read_text(encoding="utf-8")

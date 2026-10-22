@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.3 (2026-10-22)
+## [0.2.3] (2026-10-22)
 
 ### Security
 - Text from Microsoft Graph and Azure (display names, app IDs, error messages) is escaped before it reaches the terminal. C0 and C1 controls (including CSI U+009B), DEL, bidi controls and other Unicode format characters are shown as visible escapes such as `\x1b` or `\u202e` in every table cell and every error line, so data cannot move the cursor, add hyperlinks, clear lines or reorder text. Backslashes are doubled so a literal `\x1b` cannot pass for an escaped one. CSV output keeps the raw text. The escape function is ported from bbwarden. (#13)
@@ -14,7 +14,7 @@
 ### Docs
 - README uses the shared README theme. (#11)
 
-## 0.2.2 (2026-10-15)
+## [0.2.2] (2026-10-15)
 
 ### Fixed
 - Every Azure SDK or HTTP error and every connection error that reaches the CLI now prints a one-line `error:` message with a hint and exits with code `2`, as documented, instead of a traceback with exit code `1`. New hints cover 400 (check arguments and that the Microsoft.App provider is registered), 404 (check the app name, `--resource-group` and `--subscription`), 409 (another operation in progress), any other HTTP status, other Azure SDK errors, and connection failures or timeouts (check network, proxy and DNS). Only the first line of the Azure message is shown. Errors that are not from Azure or the network (programming bugs) still raise normally.
@@ -33,7 +33,7 @@
 - `rbac` table and CSV gain `SCOPE_ID` and `PRINCIPAL_ID` columns at the end, so rows stay distinct when scope or principal names repeat.
 - SECURITY.md: the repository is public, so vulnerabilities are reported through the Security tab's **Report a vulnerability** (GitHub private vulnerability reporting).
 
-## 0.2.1 (2026-10-15)
+## [0.2.1] (2026-10-15)
 
 ### Changed
 - The `secrets` table and CSV gain a `VALUE` column, placed before `FLAG` (columns: APP, KIND, CONTAINER, NAME, VALUE, FLAG). `FLAG` moves from column 5 to column 6 (in 0.2.0 the columns were APP, KIND, CONTAINER, NAME, FLAG), so scripts that read the secrets CSV by position must be updated.
@@ -47,7 +47,7 @@
 - SECURITY.md with the supported versions and how to report a vulnerability privately.
 - Dependabot version updates for pip and GitHub Actions (weekly).
 
-## 0.2.0 (2026-10-14)
+## [0.2.0] (2026-10-14)
 
 ### Breaking changes
 - Python 3.9 is no longer supported. acasentry now requires Python 3.10 or newer.
