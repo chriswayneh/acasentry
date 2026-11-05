@@ -8,6 +8,12 @@ CLI-only access and identity review for Azure Container Apps: who holds which ro
 
 Two fix commands (`identity`, `lockdown`) print dry-run plans unless `--apply` is given.
 
+## Demo
+
+<p align="center"><img src="docs/assets/demo.gif" alt="acasentry v0.2.3 demo: exposure, secrets, and identity dry-run against built-in mock Azure Container Apps data" width="100%"></p>
+
+The GIF replays real v0.2.3 output using only `--demo` mock data (no Azure account). [Run the demo](docs/demo.md).
+
 ## Quick start
 
 ```
